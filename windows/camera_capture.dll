@@ -1,0 +1,20 @@
+#include <opencv2/opencv.hpp>
+#include <iostream>
+
+extern "C" __declspec(dllexport) void captureImage(const char* outputPath) {
+    cv::VideoCapture cap(0); // Open the default camera
+    if (!cap.isOpened()) {
+        std::cerr << "Camera not opened!" << std::endl;
+        return;
+    }
+
+    cv::Mat frame;
+    cap >> frame; // Capture a single frame
+    if (frame.empty()) {
+        std::cerr << "Captured frame is empty!" << std::endl;
+        return;
+    }
+
+    cv::imwrite(outputPath, frame); // Save the image
+    cap.release();
+}

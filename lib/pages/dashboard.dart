@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:doctorcam/pages/camera.dart';
 import 'package:doctorcam/pages/patients.dart';
 import 'package:flutter/material.dart';
 
@@ -19,7 +20,7 @@ class DashboardState extends State<Dashboard> {
     super.initState();
     _pages = [
      const Patients(),
-     const Patients(),
+     Camera(),
      ExitPage(onExit: () {
         exit(0);
       }),
