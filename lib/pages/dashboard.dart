@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'package:doctorcam/pages/camera.dart';
 import 'package:doctorcam/pages/patients.dart';
 import 'package:flutter/material.dart';
-
+import 'dart:io';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({Key? key}) : super(key: key);
@@ -19,9 +18,9 @@ class DashboardState extends State<Dashboard> {
   void initState() {
     super.initState();
     _pages = [
-     const Patients(),
-     Camera(),
-     ExitPage(onExit: () {
+      const Patients(),
+      Camera(),
+      ExitPage(onExit: () {
         exit(0);
       }),
     ];
@@ -34,14 +33,28 @@ class DashboardState extends State<Dashboard> {
         children: [
           NavigationRail(
             selectedIndex: _selectedIndex,
+            backgroundColor: Colors.grey.shade500,
             onDestinationSelected: (int index) {
               setState(() {
                 _selectedIndex = index;
               });
             },
             labelType: NavigationRailLabelType.all,
-            leading: Icon(Icons.menu), // Add menu or logo here
-            destinations: [
+            leading: Column(
+              children: [
+                // Load image from assets
+                SizedBox(
+                  height: 100,
+                  width: 110,
+                  child: Image.asset(
+                    'assets/DrCam_Icon.png', // Path to the image in the assets folder
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 16), // Spacing below the logo
+              ],
+            ),
+            destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.health_and_safety),
                 label: Text('Patients'),
@@ -64,12 +77,13 @@ class DashboardState extends State<Dashboard> {
     );
   }
 }
+
 class ExitPage extends StatelessWidget {
   final VoidCallback onExit;
 
   const ExitPage({Key? key, required this.onExit}) : super(key: key);
 
- @override
+  @override
   Widget build(BuildContext context) {
     return Center(
       child: ElevatedButton(

@@ -16,6 +16,7 @@ class _WebcamPageState extends State<Camera> {
   MediaStream? _mediaStream;
   bool isRecording = false;
   Timer? _recordingTimer;
+  List<Uint8List> capturedImages = []; // List to store captured images
 
   @override
   void initState() {
@@ -45,7 +46,7 @@ class _WebcamPageState extends State<Camera> {
 
   Future<void> _startStopRecording() async {
     if (isRecording) {
-      // Stop recording (stop capturing frames)
+      // Stop recording
       _recordingTimer?.cancel();
     } else {
       // Start recording (capture frames every second)
@@ -61,25 +62,20 @@ class _WebcamPageState extends State<Camera> {
   Future<void> _captureFrameAndSave() async {
     if (_mediaStream != null) {
       try {
-        // Get the current video track from the media stream
         final videoTrack = _mediaStream!.getVideoTracks().first;
-
-        // Capture the current frame as bytes
         final imageBytes = await videoTrack.captureFrame();
-
-        // Convert the ByteBuffer to a Uint8List
         final buffer = imageBytes.asUint8List();
+        img.Image? image = img.decodeImage(buffer);
 
-        // Convert the captured frame to an Image
-        img.Image? image = img.decodeImage(Uint8List.fromList(buffer));
-
-        // Check if the image was decoded successfully
         if (image != null) {
-          // Encode the image to Base64
-          String base64String = base64Encode(img.encodeJpg(image));
-
-          // You can print or save the Base64 string, e.g., upload it or store it
-          print('Captured Frame (Base64): $base64String');
+          setState(() {
+            // Store the image data in the list
+            capturedImages.add(Uint8List.fromList(buffer));
+            if (capturedImages.length > 3) {
+              // Limit to the latest 3 images
+              capturedImages.removeAt(0);
+            }
+          });
         }
       } catch (e) {
         print('Error capturing frame: $e');
@@ -88,30 +84,7 @@ class _WebcamPageState extends State<Camera> {
   }
 
   Future<void> _captureImage() async {
-    if (_mediaStream != null) {
-      try {
-        // Capture a single frame from the video
-        final videoTrack = _mediaStream!.getVideoTracks().first;
-        final imageBytes = await videoTrack.captureFrame();
-
-        // Convert the ByteBuffer to a Uint8List
-        final buffer = imageBytes.asUint8List();
-
-        // Convert the captured frame to an Image
-        img.Image? image = img.decodeImage(Uint8List.fromList(buffer));
-
-        // Check if the image was decoded successfully
-        if (image != null) {
-          // Encode the image to Base64
-          String base64String = base64Encode(img.encodeJpg(image));
-
-          // Print the Base64 string (you can use it as needed)
-          print('Captured Image (Base64): $base64String');
-        }
-      } catch (e) {
-        print('Error capturing image: $e');
-      }
-    }
+    _captureFrameAndSave();
   }
 
   @override
@@ -127,32 +100,78 @@ class _WebcamPageState extends State<Camera> {
       appBar: AppBar(
         title: Text('USB Camera Feed'),
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Center(
+      body: Row(
+        children: [
+          // Video feed on the left
+          Expanded(
+            flex: 2,
             child: _renderer.textureId != null
                 ? Container(
-                    width: 400, // Set a fixed width for the video view
-                    height: 300, // Set a fixed height for the video view
+                    width: double.infinity,
+                    height: double.infinity,
                     child: RTCVideoView(_renderer),
                   )
-                : CircularProgressIndicator(),
+                : Center(child: CircularProgressIndicator()),
           ),
-          SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              ElevatedButton(
-                onPressed: _startStopRecording,
-                child: Text(isRecording ? 'Stop Recording' : 'Start Recording'),
+          // Image tiles on the right
+          Expanded(
+            flex: 1,
+            child: Container(
+              color: Colors.grey[200],
+              padding: EdgeInsets.all(10),
+              child: Column(
+                children: [
+                  Text(
+                    'Captured Images',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  SizedBox(height: 50),
+                  Expanded(
+                    child: GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 1,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                      ),
+                      itemCount: capturedImages.length,
+                      itemBuilder: (context, index) {
+                        return Container(
+                          color: Colors.white,
+                          child: capturedImages.isNotEmpty
+                              ? Image.memory(
+                                  capturedImages[index],
+                                  fit: BoxFit.cover,
+                                )
+                              : Center(
+                                  child: Text(
+                                    'No Images',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 20),
-              ElevatedButton(
-                onPressed: _captureImage,
-                child: Text('Capture Image'),
-              ),
-            ],
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            onPressed: _startStopRecording,
+            label: Text(isRecording ? 'Stop Recording' : 'Start Recording'),
+          ),
+          SizedBox(width: 10),
+          FloatingActionButton.extended(
+            onPressed: _captureImage,
+            label: Text('Capture Image'),
           ),
         ],
       ),
