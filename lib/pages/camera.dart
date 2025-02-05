@@ -1,156 +1,307 @@
-import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:image/image.dart' as img;
-import 'dart:async';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
+import 'dart:io'; // Required for file handling
+import 'package:flutter_ffmpeg/flutter_ffmpeg.dart'; // Add flutter_ffmpeg
 
 class Camera extends StatefulWidget {
   @override
-  _WebcamPageState createState() => _WebcamPageState();
+  _CameraPageState createState() => _CameraPageState();
 }
 
-class _WebcamPageState extends State<Camera> {
+class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin {
   final RTCVideoRenderer _renderer = RTCVideoRenderer();
   MediaStream? _mediaStream;
   bool isRecording = false;
-  Timer? _recordingTimer;
-  List<Uint8List> capturedImages = []; // List to store captured images
+  late TabController _tabController;
+  final GlobalKey _videoKey = GlobalKey();
+  late VideoPlayerController _videoPlayerController;
+  List<Map<String, dynamic>> capturedItems = [];
+  late FlutterFFmpeg _flutterFFmpeg; // FlutterFFmpeg instance
+  String? videoFilePath; // Path to save the video
 
   @override
   void initState() {
     super.initState();
+    _flutterFFmpeg = FlutterFFmpeg();
+    _tabController = TabController(length: 2, vsync: this);
     _initializeCamera();
   }
 
   Future<void> _initializeCamera() async {
     await _renderer.initialize();
-
-    // Ensure the getUserMedia call is made on the main thread
-    SchedulerBinding.instance.addPostFrameCallback((_) async {
-      try {
-        final mediaStream = await navigator.mediaDevices.getUserMedia({
-          'video': true,
-          'audio': false,
-        });
-        _renderer.srcObject = mediaStream;
-        setState(() {
-          _mediaStream = mediaStream;
-        });
-      } catch (e) {
-        print('Error initializing camera: $e');
-      }
-    });
-  }
-
-  Future<void> _startStopRecording() async {
-    if (isRecording) {
-      // Stop recording
-      _recordingTimer?.cancel();
-    } else {
-      // Start recording (capture frames every second)
-      _recordingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-        _captureFrameAndSave();
+    try {
+      final mediaStream = await navigator.mediaDevices.getUserMedia({
+        'video': true,
+        'audio': true,
       });
-    }
-    setState(() {
-      isRecording = !isRecording;
-    });
-  }
-
-  Future<void> _captureFrameAndSave() async {
-    if (_mediaStream != null) {
-      try {
-        final videoTrack = _mediaStream!.getVideoTracks().first;
-        final imageBytes = await videoTrack.captureFrame();
-        final buffer = imageBytes.asUint8List();
-        img.Image? image = img.decodeImage(buffer);
-
-        if (image != null) {
-          setState(() {
-            // Store the image data in the list
-            capturedImages.add(Uint8List.fromList(buffer));
-            if (capturedImages.length > 3) {
-              // Limit to the latest 3 images
-              capturedImages.removeAt(0);
-            }
-          });
-        }
-      } catch (e) {
-        print('Error capturing frame: $e');
-      }
+      _renderer.srcObject = mediaStream;
+      setState(() {
+        _mediaStream = mediaStream;
+      });
+    } catch (e) {
+      print('Error initializing camera: $e');
     }
   }
 
   Future<void> _captureImage() async {
-    _captureFrameAndSave();
+    try {
+      RenderRepaintBoundary boundary =
+          _videoKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      ui.Image image = await boundary.toImage();
+      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData != null) {
+        setState(() {
+          capturedItems.insert(0, {
+            'type': 'image',
+            'data': byteData.buffer.asUint8List(),
+            'datetime': DateTime.now(),
+          });
+        });
+      }
+    } catch (e) {
+      print('Error capturing image: $e');
+    }
+  }
+
+  void _toggleRecording() {
+    setState(() {
+      isRecording = !isRecording;
+    });
+    if (isRecording) {
+      // Start recording (just simulate it here)
+      print('Recording started');
+      _startRecording();
+    } else {
+      // Stop recording
+      print('Recording stopped');
+      _stopRecording();
+    }
+  }
+
+  // Simulate video recording by saving the stream using flutter_ffmpeg
+  Future<void> _startRecording() async {
+    if (_mediaStream != null) {
+      final appDocumentsDir = await getApplicationDocumentsDirectory();
+      final videoDir = Directory(join(appDocumentsDir.path, 'videos'));
+
+      // Create the directory if it doesn't exist
+      if (!await videoDir.exists()) {
+        await videoDir.create(recursive: true);
+      }
+
+      // Define the video path with timestamp to avoid name conflicts
+      videoFilePath = join(videoDir.path, 'video_${DateTime.now().millisecondsSinceEpoch}.mp4');
+
+      setState(() {
+        capturedItems.insert(0, {
+          'type': 'loading', // Show loading indicator first
+          'data': 'loading',
+          'datetime': DateTime.now(),
+        });
+      });
+
+      // Simulate video recording (this should be replaced with actual recording logic)
+      await Future.delayed(Duration(seconds: 3)); // Simulate recording time
+
+      // Once the video is "recorded", replace the loading state with the actual file path
+      setState(() {
+        capturedItems[0] = {
+          'type': 'video',
+          'data': videoFilePath,
+          'datetime': DateTime.now(),
+        };
+      });
+
+      print("Video saved to: $videoFilePath");
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    // Stop the actual recording process here.
+    // Simulate video recording stop
+    await Future.delayed(Duration(seconds: 1)); // Simulate delay in stopping the recording
+
+    // Save the video file using flutter_ffmpeg
+    if (videoFilePath != null) {
+      final String command =
+          '-y -f lavfi -t 10 -i anullsrc=r=44100:cl=stereo -t 10 -c:v libx264 -r 30 $videoFilePath'; // Example command for FFmpeg
+      await _flutterFFmpeg.execute(command);
+    }
+
+    setState(() {
+      isRecording = false; // Stop recording
+    });
   }
 
   @override
   void dispose() {
-    _recordingTimer?.cancel();
     _renderer.dispose();
+    _tabController.dispose();
+    _mediaStream?.getTracks().forEach((track) => track.stop());
+    _videoPlayerController.dispose(); // Dispose the video player controller
     super.dispose();
   }
+
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('USB Camera Feed'),
+        backgroundColor: Colors.white,
+        centerTitle: false,
+        elevation: 1.0,
+        foregroundColor: Colors.black,
       ),
-      body: Row(
-        children: [
-          // Video feed on the left
-          Expanded(
-            flex: 2,
-            child: _renderer.textureId != null
-                ? Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    child: RTCVideoView(_renderer),
-                  )
-                : Center(child: CircularProgressIndicator()),
-          ),
-          // Image tiles on the right
-          Expanded(
-            flex: 1,
-            child: Container(
-              color: Colors.grey[200],
-              padding: EdgeInsets.all(10),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TabBar(
+                    controller: _tabController,
+                    labelColor: Colors.black,
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: Colors.blue,
+                    tabs: [
+                      Tab(text: 'New User'),
+                      Tab(text: 'Existing User'),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ...[
+                              'Patient ID',
+                              'First Name',
+                              'Last Name',
+                              'Gender',
+                              'Date of Birth',
+                              'Phone No.',
+                              'Address',
+                            ].map(
+                              (label) => Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: TextField(
+                                  decoration: InputDecoration(
+                                    labelText: label,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                // Save action
+                              },
+                              child: Text('Save'),
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                                backgroundColor: Colors.teal,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Center(child: Text("Existing User")),
+                        Center(child: Text("Camera")),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              flex: 2,
               child: Column(
                 children: [
                   Text(
-                    'Captured Images',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                    'Camera',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  SizedBox(height: 30),
+                  Expanded(
+                    child: RepaintBoundary(
+                      key: _videoKey,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: _renderer.textureId != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: RTCVideoView(_renderer),
+                              )
+                            : Center(child: CircularProgressIndicator()),
+                      ),
                     ),
                   ),
-                  SizedBox(height: 50),
+                  SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _captureImage,
+                        icon: Icon(Icons.camera_alt),
+                        label: Text('Capture'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal,
+                                foregroundColor: Colors.white),
+                      ),
+                      SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: _toggleRecording,
+                        icon: Icon(isRecording ? Icons.stop : Icons.videocam),
+                        label: Text(isRecording ? 'Stop' : 'Record'),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal,
+                                foregroundColor: Colors.white,),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 10),
                   Expanded(
                     child: GridView.builder(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 1,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
+                        crossAxisCount: 3,
+                        childAspectRatio: 1,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
                       ),
-                      itemCount: capturedImages.length,
+                      itemCount: capturedItems.length,
                       itemBuilder: (context, index) {
+                        final item = capturedItems[index];
                         return Container(
-                          color: Colors.white,
-                          child: capturedImages.isNotEmpty
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: item['type'] == 'image'
                               ? Image.memory(
-                                  capturedImages[index],
+                                  item['data'],
                                   fit: BoxFit.cover,
                                 )
-                              : Center(
-                                  child: Text(
-                                    'No Images',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                ),
+                              : item['type'] == 'video'
+                                  ? VideoPlayerWidget(videoPath: item['data']) // Display video using video_player
+                                  : item['type'] == 'loading'
+                                      ? Center(child: CircularProgressIndicator())
+                                      : Center(child: Icon(Icons.videocam)),
                         );
                       },
                     ),
@@ -158,23 +309,47 @@ class _WebcamPageState extends State<Camera> {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton.extended(
-            onPressed: _startStopRecording,
-            label: Text(isRecording ? 'Stop Recording' : 'Start Recording'),
-          ),
-          SizedBox(width: 10),
-          FloatingActionButton.extended(
-            onPressed: _captureImage,
-            label: Text('Capture Image'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+}
+
+class VideoPlayerWidget extends StatefulWidget {
+  final String videoPath;
+
+  const VideoPlayerWidget({required this.videoPath});
+
+  @override
+  _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.file(File(widget.videoPath))
+      ..initialize().then((_) {
+        setState(() {});
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _controller.value.isInitialized
+        ? AspectRatio(
+            aspectRatio: _controller.value.aspectRatio,
+            child: VideoPlayer(_controller),
+          )
+        : Center(child: CircularProgressIndicator());
   }
 }

@@ -38,7 +38,14 @@ dependencies:
   image_picker:
   flutter_webrtc: ^0.9.12
   image: ^3.0.1
-
+  crypto: ^3.0.2
+  uuid: ^3.0.7  
+  encrypt: ^5.0.0
+  pdf: 
+  file_picker: ^8.1.4
+  video_player:
+  flutter_ffmpeg:
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -64,6 +71,9 @@ flutter:
     - assets/doc.jpg
     - assets/Logo.png
     - assets/DrCam_Icon.png
+    - assets/background.gif
+    - assets/doctor.png
+    - assets/Animation.gif
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

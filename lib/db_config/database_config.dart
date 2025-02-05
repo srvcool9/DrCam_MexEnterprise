@@ -6,9 +6,8 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-class DatabaseConfig <T extends DatabaseModel>{
-
-   static  Database? _database;
+class DatabaseConfig<T extends DatabaseModel> {
+  static Database? _database;
   Future<Database> get database async {
     if (_database != null) {
       return _database!;
@@ -22,7 +21,6 @@ class DatabaseConfig <T extends DatabaseModel>{
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
-     
 
       final appDocumentsDir = await getApplicationDocumentsDirectory();
       final dbPath = join(appDocumentsDir.path, "databases", "AppDb.db");
@@ -81,21 +79,39 @@ class DatabaseConfig <T extends DatabaseModel>{
     }
     throw Exception("Unsupported platform");
   }
-  
- 
+
+  Future<void> resetDatabase() async {
+     final appDocumentsDir = await getApplicationDocumentsDirectory();
+      final dbPath = join(appDocumentsDir.path, "databases", "AppDb.db");
+
+    // Close and delete the existing database
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+
+    final file = File(dbPath);
+    if (await file.exists()) {
+      await file.delete();
+      print('Database deleted successfully.');
+    } else {
+      print('No database file found to delete.');
+    }
+
+    // Reinitialize the database
+    await initDB();
+    print('Database reinitialized.');
+  }
 
   Future<void> _onCreate(Database database, int version) async {
     await database.execute(Queries.CREATE_USER);
+    await database.execute(Queries.DOCTOR_PROFILE);
   }
 
- 
   Future<int> insert(T model) async {
     final db = await database;
     return await db.insert(model.getTableName(), model.toMap());
   }
-
-
-  
 
   // Update a model item
   Future<int> update(T model) async {
@@ -109,10 +125,9 @@ class DatabaseConfig <T extends DatabaseModel>{
   }
 
   Future<List<T>> queryAll<T>(
-  String tableName, T Function(Map<String, dynamic>) fromMap) async {
-  final db = await database;
-  final List<Map<String, dynamic>> result = await db.query(tableName);
-  return result.map((map) => fromMap(map)).toList();
- }
+      String tableName, T Function(Map<String, dynamic>) fromMap) async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.query(tableName);
+    return result.map((map) => fromMap(map)).toList();
+  }
 }
-

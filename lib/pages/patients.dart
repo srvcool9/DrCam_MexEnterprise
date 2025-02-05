@@ -61,7 +61,7 @@ void _showAddPatientDialog() {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
+                  color: Colors.deepPurple.shade50,
                 ),
               ),
               SizedBox(height: 16),
@@ -275,10 +275,10 @@ void _resetForm() {
       appBar: AppBar(
         title: const Text(
           'Patients',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
         centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 101, 49, 191),
+        backgroundColor:  Colors.grey.shade500
       ),
       body: Container(
         color: Colors.white,
