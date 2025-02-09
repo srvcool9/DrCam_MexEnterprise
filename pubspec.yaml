@@ -45,6 +45,7 @@ dependencies:
   file_picker: ^8.1.4
   video_player:
   flutter_ffmpeg:
+  permission_handler: ^11.0.1
   
 dev_dependencies:
   flutter_test:

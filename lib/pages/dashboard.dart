@@ -2,10 +2,12 @@ import 'package:doctorcam/pages/camera.dart';
 import 'package:doctorcam/pages/doctor-profile-screen.dart';
 import 'package:doctorcam/pages/landing-screen.dart';
 import 'package:doctorcam/pages/login.dart';
-import 'package:doctorcam/pages/patient-history-screen';
+import 'package:doctorcam/pages/patient-history-screen.dart';
 import 'package:doctorcam/pages/pdfexamplescreen.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:doctorcam/models/doctor_profile.dart';
+import 'package:doctorcam/repository/DoctorProfileRepository.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({Key? key}) : super(key: key);
@@ -15,6 +17,16 @@ class Dashboard extends StatefulWidget {
 }
 
 class DashboardState extends State<Dashboard> {
+
+  late Doctorprofilerepository doctorprofilerepository;
+  String _agencyName = 'Mex Enterprise';
+
+   @override
+  void initState() {
+    super.initState();
+    doctorprofilerepository = Doctorprofilerepository();
+    getAgencyName();// Added device ID generation
+  }
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
@@ -27,6 +39,15 @@ class DashboardState extends State<Dashboard> {
       exit(0);
     }),
   ];
+
+   Future<void> getAgencyName() async {
+    DoctorProfile? doctor =
+        await doctorprofilerepository.getFirstDoctorProfile();
+
+    setState(() {
+      _agencyName = doctor?.agencyName ?? "Mex Enterprise";
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,20 +64,20 @@ class DashboardState extends State<Dashboard> {
             Row(
               children: [
                 Text(
-                  'Mex',
+                   _agencyName.isNotEmpty ? _agencyName : "Mex Enterprise",
                   style: TextStyle(
                     color: Colors.teal,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  'Technologies',
-                  style: TextStyle(
-                    color: Colors.teal.shade400,
-                    fontSize: 18,
-                  ),
-                ),
+                // Text(
+                //   'Technologies',
+                //   style: TextStyle(
+                //     color: Colors.teal.shade400,
+                //     fontSize: 18,
+                //   ),
+                // ),
               ],
             ),
             // Navigation menu

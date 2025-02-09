@@ -15,8 +15,20 @@ class Doctorprofilerepository {
   }
 
   Future<List<DoctorProfile>> getAllDoctorProfile() async {
-  // Fetch all rows from the 'doctor_profile' table
- return await dbConfig.queryAll('doctor_profile',(map) => DoctorProfile(doctorName: '',mobileNumber:0,address: '',username: '',password: '').fromMap(map));
+    // Fetch all rows from the 'doctor_profile' table
+    return await dbConfig.queryAll(
+        'doctor_profile',
+        (map) => DoctorProfile(
+                agencyName: '', contactNumber: 0, email: '', password: '')
+            .fromMap(map));
+  }
 
-}
+  Future<DoctorProfile?> getFirstDoctorProfile() async {
+    final result = await dbConfig.queryTopOne(
+        'doctor_profile',
+        (map) => DoctorProfile(
+                id:0 ,agencyName: '', contactNumber: 0, email: '', password: '')
+            .fromMap(map));
+    return result.isNotEmpty ? result.first : null;
+  }
 }

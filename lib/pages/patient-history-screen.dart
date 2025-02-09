@@ -14,27 +14,22 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen> {
     super.initState();
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Patient History'),
-        backgroundColor: Colors.teal,
+        title: Text('Patient History',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 35,
+              fontWeight: FontWeight.bold,
+            )),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Patient History',
-              style: TextStyle(
-                fontSize: 24.0,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
             SizedBox(height: 16.0),
             Table(
               border: TableBorder.all(color: Colors.blueAccent),
@@ -107,5 +102,4 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen> {
       ),
     );
   }
-
 }

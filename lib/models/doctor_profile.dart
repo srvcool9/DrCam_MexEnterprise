@@ -4,24 +4,22 @@ import 'package:doctorcam/models/databasemodel.dart';
 
 class DoctorProfile implements DatabaseModel {
   int? id;
-  late String doctorName;
-  late int mobileNumber;
-  late String address;
-  late String username;
+  late String agencyName;
+  late int contactNumber;
+  late String email;
   late String password;
 
  
 
-  DoctorProfile({this.id, required this.doctorName,required this.mobileNumber,required this.address,required this.username,required this.password});
+  DoctorProfile({this.id, required this.agencyName,required this.contactNumber,required this.email,required this.password});
  // Converts the object to a Map for database storage
   @override
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'doctorName': doctorName,
-      'mobileNumber': mobileNumber,
-      'address': address,
-      'username': username,
+      'agencyName': agencyName,
+      'contactNumber': contactNumber,
+      'email': email,
       'password': password
     };
   }
@@ -31,10 +29,9 @@ class DoctorProfile implements DatabaseModel {
   DoctorProfile fromMap(Map<String, dynamic> map) {
     return DoctorProfile(
       id: map['id'],
-      doctorName: map['doctorName'],
-      mobileNumber: map['mobileNumber'],
-      address: map['address'],
-      username: map['username'],
+      agencyName: map['agencyName'],
+      contactNumber: map['contactNumber'],
+      email: map['email'],
       password: map['password']
     );
   }

@@ -106,6 +106,8 @@ class DatabaseConfig<T extends DatabaseModel> {
   Future<void> _onCreate(Database database, int version) async {
     await database.execute(Queries.CREATE_USER);
     await database.execute(Queries.DOCTOR_PROFILE);
+    await database.execute(Queries.PATIENTS);
+    await database.execute(Queries.PATIENT_HISTORY);
   }
 
   Future<int> insert(T model) async {
@@ -130,4 +132,51 @@ class DatabaseConfig<T extends DatabaseModel> {
     final List<Map<String, dynamic>> result = await db.query(tableName);
     return result.map((map) => fromMap(map)).toList();
   }
+
+  Future<List<T>> queryTopOne<T>(
+    String tableName, T Function(Map<String, dynamic>) fromMap) async {
+  final db = await database;
+  final List<Map<String, dynamic>> result = await db.query(
+    tableName,
+    orderBy: 'id DESC', // Assuming 'id' is the primary key, fetch latest record
+    limit: 1, // Fetch only one record
+  );
+  
+  return result.map((map) => fromMap(map)).toList();
+}
+Future<T?> queryByColumn<T>(
+  String tableName,
+  String columnName,
+  dynamic columnValue,
+  T Function(Map<String, dynamic>) fromMap,
+) async {
+  final db = await database;
+
+  final List<Map<String, dynamic>> result = await db.query(
+    tableName,
+    where: '$columnName = ?',
+    whereArgs: [columnValue], // Fetch the latest matching record
+    limit: 1, // Fetch only one record
+  );
+
+  if (result.isNotEmpty) {
+    return fromMap(result.first) as T; // Ensure the correct type mapping
+  }
+  return null;
+}
+
+Future<int> updatePatient(T model) async {
+    final db = await database;
+    return await db.update(
+      model.getTableName(),
+      model.toMap(),
+      where: 'patientId = ?',
+      whereArgs: [model.toMap()['patientId']],
+    );
+  }
+
+
+
+
+
 }

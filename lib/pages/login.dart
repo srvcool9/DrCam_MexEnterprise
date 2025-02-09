@@ -1,3 +1,5 @@
+import 'package:doctorcam/models/doctor_profile.dart';
+import 'package:doctorcam/repository/DoctorProfileRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
@@ -13,6 +15,9 @@ class LoginState extends State<Login> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController keyController = TextEditingController();
+  late Doctorprofilerepository doctorprofilerepository;
+  late DoctorProfile doctorProfile;
+  String _agencyName = '';
 
   bool showActivationKey = true; // Added variable
   String _deviceId = ''; // Added variable
@@ -20,6 +25,8 @@ class LoginState extends State<Login> {
   @override
   void initState() {
     super.initState();
+    doctorprofilerepository = Doctorprofilerepository();
+    getAgencyName();
     _generateDeviceId(); // Added device ID generation
   }
 
@@ -30,24 +37,10 @@ class LoginState extends State<Login> {
     });
   }
 
- 
-
   void activationKeyVisibility() {
     setState(() {
       showActivationKey = !showActivationKey;
     });
-  }
-
-  void login() {
-    String username = usernameController.text;
-    String password = passwordController.text;
-
-    if (username == 'admin' && password == 'admin') {
-        showSuccessNotification(context, "Welcome to our application");
-        Navigator.pushReplacementNamed(context, '/dashboard');
-    } else {
-      showErrorNotification(context, "Invalid Credentials! Please try again.");
-    }
   }
 
   void showErrorNotification(BuildContext context, String message) {
@@ -94,6 +87,15 @@ class LoginState extends State<Login> {
     });
   }
 
+  Future<void> getAgencyName() async {
+    DoctorProfile? doctor =
+        await doctorprofilerepository.getFirstDoctorProfile();
+
+    setState(() {
+      _agencyName = doctor?.agencyName ?? "Doctor's Agency Name";
+    });
+  }
+
   void showSuccessNotification(BuildContext context, String message) {
     final overlay = Overlay.of(context);
     final overlayEntry = OverlayEntry(
@@ -137,6 +139,32 @@ class LoginState extends State<Login> {
     });
   }
 
+  Future<void> login() async {
+    String username = usernameController.text;
+    String password = passwordController.text;
+
+    if (username == 'admin') {
+      if (password == 'admin') {
+        showSuccessNotification(context, "Welcome to our application");
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        showErrorNotification(
+            context, "Invalid Credentials! Please try again.");
+      }
+    } else {
+      Future<DoctorProfile?> persist =
+          doctorprofilerepository.getFirstDoctorProfile();
+      final doctor = await persist;
+      if (doctor?.password == password) {
+        showSuccessNotification(context, "Welcome to our application");
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        showErrorNotification(
+            context, "Invalid Credentials! Please try again.");
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -154,8 +182,8 @@ class LoginState extends State<Login> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Header
-                      const Text(
-                        "Doctor's Agency Name",
+                      Text(
+                        _agencyName.isNotEmpty ? _agencyName : "Loading...",
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -194,7 +222,7 @@ class LoginState extends State<Login> {
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 24),
                       // Login Button
                       SizedBox(

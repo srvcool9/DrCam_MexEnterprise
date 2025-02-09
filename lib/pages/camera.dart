@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:doctorcam/models/patient_master.dart';
+import 'package:doctorcam/repository/PatientRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -7,14 +9,18 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io'; // Required for file handling
-import 'package:flutter_ffmpeg/flutter_ffmpeg.dart'; // Add flutter_ffmpeg
+import 'package:flutter_ffmpeg/flutter_ffmpeg.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+// Add flutter_ffmpeg
 
 class Camera extends StatefulWidget {
   @override
   _CameraPageState createState() => _CameraPageState();
 }
 
-class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin {
+class _CameraPageState extends State<Camera>
+    with SingleTickerProviderStateMixin {
   final RTCVideoRenderer _renderer = RTCVideoRenderer();
   MediaStream? _mediaStream;
   bool isRecording = false;
@@ -25,27 +31,269 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
   late FlutterFFmpeg _flutterFFmpeg; // FlutterFFmpeg instance
   String? videoFilePath; // Path to save the video
 
+  final _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _patientIdController = TextEditingController();
+  final TextEditingController _patientNameController = TextEditingController();
+  final TextEditingController _genderController = TextEditingController();
+  final TextEditingController _dobController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  late Patientrepository patientrepository;
+
+  final _updateFormKey = GlobalKey<FormState>();
+  final TextEditingController _existPatientIdController =
+      TextEditingController();
+  final TextEditingController _existPatientNameController =
+      TextEditingController();
+  final TextEditingController _existGenderController = TextEditingController();
+  final TextEditingController _existDobController = TextEditingController();
+  final TextEditingController _existPhoneController = TextEditingController();
+  final TextEditingController _existAddressController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+    patientrepository = Patientrepository();
     _flutterFFmpeg = FlutterFFmpeg();
     _tabController = TabController(length: 2, vsync: this);
-    _initializeCamera();
+
+    _requestPermissions().then((_) {
+      _listCameras();
+      _initializeCamera();
+    });
+  }
+
+  Future<void> _requestPermissions() async {
+    await [Permission.camera, Permission.microphone].request();
+  }
+
+  Future<void> _listCameras() async {
+    try {
+      List<MediaDeviceInfo> devices =
+          await navigator.mediaDevices.enumerateDevices();
+      for (var device in devices) {
+        if (device.kind == 'videoinput') {
+          print("Camera Found: ${device.label} (ID: ${device.deviceId})");
+        }
+      }
+    } catch (e) {
+      print("Error listing cameras: $e");
+    }
   }
 
   Future<void> _initializeCamera() async {
     await _renderer.initialize();
     try {
-      final mediaStream = await navigator.mediaDevices.getUserMedia({
-        'video': true,
-        'audio': true,
-      });
-      _renderer.srcObject = mediaStream;
-      setState(() {
-        _mediaStream = mediaStream;
-      });
+      List<MediaDeviceInfo> devices =
+          await navigator.mediaDevices.enumerateDevices();
+      String? selectedDeviceId;
+
+      for (var device in devices) {
+        if (device.kind == 'videoinput') {
+          print("Camera Found: ${device.label} (ID: ${device.deviceId})");
+          selectedDeviceId ??= device.deviceId; // Select the first camera
+        }
+      }
+
+      if (selectedDeviceId != null) {
+        final mediaStream = await navigator.mediaDevices.getUserMedia({
+          'video': {
+            'deviceId': selectedDeviceId,
+          },
+          'audio': true,
+        });
+
+        _renderer.srcObject = mediaStream;
+        setState(() {
+          _mediaStream = mediaStream;
+        });
+        print("Camera initialized with device ID: $selectedDeviceId");
+      } else {
+        print("No camera found.");
+      }
     } catch (e) {
       print('Error initializing camera: $e');
+    }
+  }
+
+  void showErrorNotification(BuildContext context, String message) {
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 50,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red, width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(2, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error, color: Colors.red),
+                const SizedBox(width: 8),
+                Text(
+                  message,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay?.insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 3), () {
+      overlayEntry.remove();
+    });
+  }
+
+  void showSuccessNotification(BuildContext context, String message) {
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 50,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF005A96),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromARGB(66, 0, 0, 0),
+                  blurRadius: 4,
+                  offset: Offset(2, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  message,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay?.insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 3), () {
+      overlayEntry.remove();
+    });
+  }
+
+  void _loadPatientDate(BuildContext context) async {
+    final patientPersist = await patientrepository.getPatientDetailByFeildName(
+      'patients',
+      'phone',
+      _existPatientIdController.text.toString(),
+    );
+
+    final patientExists = await patientrepository.getPatientDetailByFeildName(
+      'patients',
+      'patientId',
+      _existPatientIdController.text,
+    );
+
+    if (patientExists != null) {
+      setState(() {
+        _existPatientIdController.text = patientExists.patientId.toString();
+        _existPatientNameController.text = patientExists.patientName;
+        _existGenderController.text = patientExists.gender;
+        _existPhoneController.text = patientExists.phone;
+        _existAddressController.text = patientExists.address;
+        _existDobController.text=patientExists.dateOfBirth;
+      });
+    } else if (patientPersist != null) {
+      setState(() {
+        _existPatientIdController.text = patientPersist.patientId.toString();
+        _existPatientNameController.text = patientPersist.patientName;
+        _existGenderController.text = patientPersist.gender;
+        _existPhoneController.text = patientPersist.phone;
+        _existAddressController.text = patientPersist.address;
+        _existDobController.text=patientPersist.dateOfBirth;
+      });
+    }else{
+      showErrorNotification(context, "Patient not found.");
+    }
+  }
+
+  Future<void> updateExistingPatient(BuildContext context) async {
+    try {
+      final patient = PatientMaster(
+        patientId:int.tryParse(_existPatientIdController.text) ?? 0,
+        patientName: _patientNameController.text,
+        gender: _genderController.text,
+        dateOfBirth: _dobController.text,
+        phone: _phoneController.text,
+        address: _addressController.text,
+      );
+      patientrepository.updatePatient(patient);
+    } catch (e, stackTrace) {
+      debugPrint("Error updating patient: $e\nStackTrace: $stackTrace");
+      if (context.mounted) {
+        showErrorNotification(context, "Something went wrong.");
+      }
+    }
+  }
+
+  Future<void> savePatient(BuildContext context) async {
+    try {
+      final patientPersist =
+          await patientrepository.getPatientDetailByFeildName(
+        'patients',
+        'phone',
+        _phoneController.text,
+      );
+
+      final patient = PatientMaster(
+        patientId: patientPersist?.patientId ?? 0, // ✅ Use null-aware operator
+        patientName: _patientNameController.text,
+        gender: _genderController.text,
+        dateOfBirth: _dobController.text,
+        phone: _phoneController.text,
+        address: _addressController.text,
+      );
+
+      if (patientPersist != null) {
+        await patientrepository.updatePatient(patient);
+        if (context.mounted) {
+          showSuccessNotification(context, "Patient updated successfully.");
+        }
+      } else {
+        await patientrepository.insertPatient(patient);
+        if (context.mounted) {
+          showSuccessNotification(
+              context, "New patient inserted successfully.");
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint("Error saving patient: $e\nStackTrace: $stackTrace");
+      if (context.mounted) {
+        showErrorNotification(context, "Something went wrong.");
+      }
     }
   }
 
@@ -54,7 +302,8 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
       RenderRepaintBoundary boundary =
           _videoKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
       ui.Image image = await boundary.toImage();
-      ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData != null) {
         setState(() {
           capturedItems.insert(0, {
@@ -96,7 +345,8 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
       }
 
       // Define the video path with timestamp to avoid name conflicts
-      videoFilePath = join(videoDir.path, 'video_${DateTime.now().millisecondsSinceEpoch}.mp4');
+      videoFilePath = join(
+          videoDir.path, 'video_${DateTime.now().millisecondsSinceEpoch}.mp4');
 
       setState(() {
         capturedItems.insert(0, {
@@ -125,7 +375,8 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
   Future<void> _stopRecording() async {
     // Stop the actual recording process here.
     // Simulate video recording stop
-    await Future.delayed(Duration(seconds: 1)); // Simulate delay in stopping the recording
+    await Future.delayed(
+        Duration(seconds: 1)); // Simulate delay in stopping the recording
 
     // Save the video file using flutter_ffmpeg
     if (videoFilePath != null) {
@@ -144,11 +395,14 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
     _renderer.dispose();
     _tabController.dispose();
     _mediaStream?.getTracks().forEach((track) => track.stop());
-    _videoPlayerController.dispose(); // Dispose the video player controller
+
+    if (_videoPlayerController != null &&
+        _videoPlayerController.value.isInitialized) {
+      _videoPlayerController.dispose();
+    }
+
     super.dispose();
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -174,8 +428,8 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
                     unselectedLabelColor: Colors.grey,
                     indicatorColor: Colors.blue,
                     tabs: [
-                      Tab(text: 'New User'),
-                      Tab(text: 'Existing User'),
+                      Tab(text: 'New Patient'),
+                      Tab(text: 'Existing Patient'),
                     ],
                   ),
                   SizedBox(height: 16),
@@ -186,41 +440,140 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ...[
-                              'Patient ID',
-                              'First Name',
-                              'Last Name',
-                              'Gender',
-                              'Date of Birth',
-                              'Phone No.',
-                              'Address',
-                            ].map(
-                              (label) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: TextField(
-                                  decoration: InputDecoration(
-                                    labelText: label,
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                              ),
+                            TextFormField(
+                              controller: _patientIdController,
+                              decoration: InputDecoration(
+                                  labelText: 'Patient Id',
+                                  border: OutlineInputBorder()),
+                              validator: (value) => value!.isEmpty
+                                  ? 'Please enter patient ID'
+                                  : null,
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _patientNameController,
+                              decoration: InputDecoration(
+                                  labelText: 'Patient Name',
+                                  border: OutlineInputBorder()),
+                              validator: (value) => value!.isEmpty
+                                  ? 'Please enter patient name'
+                                  : null,
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _genderController,
+                              decoration: InputDecoration(
+                                  labelText: 'Gender',
+                                  border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _dobController,
+                              decoration: InputDecoration(
+                                  labelText: 'Date of Birth',
+                                  border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _phoneController,
+                              decoration: InputDecoration(
+                                  labelText: 'Phone No.',
+                                  border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _addressController,
+                              decoration: InputDecoration(
+                                  labelText: 'Address',
+                                  border: OutlineInputBorder()),
                             ),
                             SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: () {
-                                // Save action
+                                savePatient(context);
                               },
                               child: Text('Save'),
                               style: ElevatedButton.styleFrom(
-                                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 40, vertical: 15),
                                 backgroundColor: Colors.teal,
                                 foregroundColor: Colors.white,
                               ),
-                            ),
+                            )
                           ],
                         ),
-                        Center(child: Text("Existing User")),
-                        Center(child: Text("Camera")),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _existPatientIdController,
+                              decoration: InputDecoration(
+                                labelText: 'Serach By PaitentId or Phone',
+                                border: OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: Icon(Icons.search),
+                                  onPressed: () {
+                                    _loadPatientDate(context);
+                                  },
+                                ),
+                              ),
+                              validator: (value) => value!.isEmpty
+                                  ? 'Please enter patient ID'
+                                  : null,
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _existPatientNameController,
+                              decoration: InputDecoration(
+                                  labelText: 'Patient Name',
+                                  border: OutlineInputBorder()),
+                              validator: (value) => value!.isEmpty
+                                  ? 'Please enter patient name'
+                                  : null,
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _existGenderController,
+                              decoration: InputDecoration(
+                                  labelText: 'Gender',
+                                  border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _existDobController,
+                              decoration: InputDecoration(
+                                  labelText: 'Date of Birth',
+                                  border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _existPhoneController,
+                              decoration: InputDecoration(
+                                  labelText: 'Phone No.',
+                                  border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller: _existAddressController,
+                              decoration: InputDecoration(
+                                  labelText: 'Address',
+                                  border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                updateExistingPatient(context);
+                              },
+                              child: Text('Update'),
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 40, vertical: 15),
+                                backgroundColor: Colors.teal,
+                                foregroundColor: Colors.white,
+                              ),
+                            )
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -262,16 +615,19 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
                         onPressed: _captureImage,
                         icon: Icon(Icons.camera_alt),
                         label: Text('Capture'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal,
-                                foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white),
                       ),
                       SizedBox(width: 16),
                       ElevatedButton.icon(
                         onPressed: _toggleRecording,
                         icon: Icon(isRecording ? Icons.stop : Icons.videocam),
                         label: Text(isRecording ? 'Stop' : 'Record'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal,
-                                foregroundColor: Colors.white,),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ],
                   ),
@@ -298,9 +654,12 @@ class _CameraPageState extends State<Camera> with SingleTickerProviderStateMixin
                                   fit: BoxFit.cover,
                                 )
                               : item['type'] == 'video'
-                                  ? VideoPlayerWidget(videoPath: item['data']) // Display video using video_player
+                                  ? VideoPlayerWidget(
+                                      videoPath: item[
+                                          'data']) // Display video using video_player
                                   : item['type'] == 'loading'
-                                      ? Center(child: CircularProgressIndicator())
+                                      ? Center(
+                                          child: CircularProgressIndicator())
                                       : Center(child: Icon(Icons.videocam)),
                         );
                       },
