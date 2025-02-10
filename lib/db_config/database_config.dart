@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:doctorcam/constants/queries.dart';
+import 'package:doctorcam/dto/PatientHistoryDTO.dart';
 import 'package:doctorcam/models/databasemodel.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -175,6 +176,28 @@ Future<int> updatePatient(T model) async {
     );
   }
 
+  Future<List<T>> customQuery<T>(String query, T Function(Map<String, dynamic>) fromMap,int param) async {
+  final db = await database; 
+  try {
+    final List<Map<String, dynamic>> result = await db.rawQuery(query,[param]);
+    return result.map((map) => fromMap(map)).toList();
+  } catch (e) {
+    print("Error executing query: $e");
+    return [];
+  }
+}
+
+
+Future<List<PatientHistoryDto>> getGridData() async{
+  final db = await database; 
+  try{
+  final List<Map<String, dynamic>> result = await db.rawQuery(Queries.GET_GRID_DATA);
+  return result.map((map) => PatientHistoryDto.fromJson(map)).toList();
+  }catch (e) {
+    print("Error executing query: $e");
+    return [];
+  }
+}
 
 
 

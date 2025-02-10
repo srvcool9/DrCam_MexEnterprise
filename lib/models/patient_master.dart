@@ -1,7 +1,7 @@
 import 'package:doctorcam/models/databasemodel.dart';
 
 class PatientMaster implements DatabaseModel {
-  final int patientId;
+  final int? patientId;
   final String patientName;
   final String gender;
   final String dateOfBirth;

@@ -46,6 +46,7 @@ dependencies:
   video_player:
   flutter_ffmpeg:
   permission_handler: ^11.0.1
+  intl: ^0.18.1
   
 dev_dependencies:
   flutter_test:

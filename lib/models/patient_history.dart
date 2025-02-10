@@ -1,10 +1,10 @@
 import 'package:doctorcam/models/databasemodel.dart';
 
 class PatientHistory implements DatabaseModel {
-  final int id;
+  final int? id;
   final int patientId;
   final String appointmentDate;
-  final double createdOn;
+  final String createdOn;
 
   PatientHistory({
     required this.id,
@@ -24,6 +24,15 @@ class PatientHistory implements DatabaseModel {
 
   @override
   DatabaseModel fromMap(Map<String, dynamic> map) {
+    return PatientHistory(
+      id: map['id'],
+      patientId: map['patientId'],
+      appointmentDate: map['appointmentDate'],
+      createdOn: map['createdOn'],
+    );
+   }
+
+    static PatientHistory map(Map<String, dynamic> map) {
     return PatientHistory(
       id: map['id'],
       patientId: map['patientId'],

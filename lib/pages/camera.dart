@@ -1,10 +1,13 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:doctorcam/models/patient_history.dart';
 import 'package:doctorcam/models/patient_master.dart';
+import 'package:doctorcam/repository/PatientHistoryRepository.dart';
 import 'package:doctorcam/repository/PatientRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
@@ -39,7 +42,10 @@ class _CameraPageState extends State<Camera>
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _appointmentDateController =
+      TextEditingController();
   late Patientrepository patientrepository;
+  late Patienthistoryrepository patientHistoryRepository;
 
   final _updateFormKey = GlobalKey<FormState>();
   final TextEditingController _existPatientIdController =
@@ -50,11 +56,14 @@ class _CameraPageState extends State<Camera>
   final TextEditingController _existDobController = TextEditingController();
   final TextEditingController _existPhoneController = TextEditingController();
   final TextEditingController _existAddressController = TextEditingController();
+  final TextEditingController _existAppointmentDateController =
+      TextEditingController();
 
   @override
   void initState() {
     super.initState();
     patientrepository = Patientrepository();
+    patientHistoryRepository = Patienthistoryrepository();
     _flutterFFmpeg = FlutterFFmpeg();
     _tabController = TabController(length: 2, vsync: this);
 
@@ -62,6 +71,26 @@ class _CameraPageState extends State<Camera>
       _listCameras();
       _initializeCamera();
     });
+  }
+
+  void resetNewPatientForm() {
+    _patientIdController.clear();
+    _patientNameController.clear();
+    _genderController.clear();
+    _dobController.clear();
+    _phoneController.clear();
+    _addressController.clear();
+    _appointmentDateController.clear();
+  }
+
+  void resetExistingPatientForm() {
+    _existPatientIdController.clear();
+    _existPatientNameController.clear();
+    _existGenderController.clear();
+    _existDobController.clear();
+    _existPhoneController.clear();
+    _existAddressController.clear();
+    _existAppointmentDateController.clear();
   }
 
   Future<void> _requestPermissions() async {
@@ -224,7 +253,7 @@ class _CameraPageState extends State<Camera>
         _existGenderController.text = patientExists.gender;
         _existPhoneController.text = patientExists.phone;
         _existAddressController.text = patientExists.address;
-        _existDobController.text=patientExists.dateOfBirth;
+        _existDobController.text = patientExists.dateOfBirth;
       });
     } else if (patientPersist != null) {
       setState(() {
@@ -233,9 +262,9 @@ class _CameraPageState extends State<Camera>
         _existGenderController.text = patientPersist.gender;
         _existPhoneController.text = patientPersist.phone;
         _existAddressController.text = patientPersist.address;
-        _existDobController.text=patientPersist.dateOfBirth;
+        _existDobController.text = patientPersist.dateOfBirth;
       });
-    }else{
+    } else {
       showErrorNotification(context, "Patient not found.");
     }
   }
@@ -243,14 +272,25 @@ class _CameraPageState extends State<Camera>
   Future<void> updateExistingPatient(BuildContext context) async {
     try {
       final patient = PatientMaster(
-        patientId:int.tryParse(_existPatientIdController.text) ?? 0,
-        patientName: _patientNameController.text,
-        gender: _genderController.text,
-        dateOfBirth: _dobController.text,
-        phone: _phoneController.text,
-        address: _addressController.text,
+        patientId: int.tryParse(_existPatientIdController.text) ?? 0,
+        patientName: _existPatientNameController.text,
+        gender: _existGenderController.text,
+        dateOfBirth: _existDobController.text,
+        phone: _existPhoneController.text,
+        address: _existAddressController.text,
       );
-      patientrepository.updatePatient(patient);
+
+      int patientId = await patientrepository.updatePatient(patient);
+      if (patientId != null) {
+        final newApointment = PatientHistory(
+          id: null,
+          patientId: patientId,
+          appointmentDate: _existAppointmentDateController.text,
+          createdOn: DateTime.now().toString(),
+        );
+        patientHistoryRepository.insertPatientHistory(newApointment);
+      }
+      showSuccessNotification(context, "Patient updated successfully.");
     } catch (e, stackTrace) {
       debugPrint("Error updating patient: $e\nStackTrace: $stackTrace");
       if (context.mounted) {
@@ -269,7 +309,8 @@ class _CameraPageState extends State<Camera>
       );
 
       final patient = PatientMaster(
-        patientId: patientPersist?.patientId ?? 0, // ✅ Use null-aware operator
+        patientId:
+            patientPersist?.patientId ?? null, // ✅ Use null-aware operator
         patientName: _patientNameController.text,
         gender: _genderController.text,
         dateOfBirth: _dobController.text,
@@ -283,10 +324,12 @@ class _CameraPageState extends State<Camera>
           showSuccessNotification(context, "Patient updated successfully.");
         }
       } else {
-        await patientrepository.insertPatient(patient);
+        int id = await patientrepository.insertPatient(patient);
+        _savePatientHistory(id);
         if (context.mounted) {
           showSuccessNotification(
               context, "New patient inserted successfully.");
+          resetNewPatientForm();
         }
       }
     } catch (e, stackTrace) {
@@ -295,6 +338,15 @@ class _CameraPageState extends State<Camera>
         showErrorNotification(context, "Something went wrong.");
       }
     }
+  }
+
+  Future<int> _savePatientHistory(int patientId) async {
+    final patientHistory = PatientHistory(
+        id: null,
+        patientId: patientId,
+        appointmentDate: _appointmentDateController.text,
+        createdOn: DateTime.now().toString());
+    return await patientHistoryRepository.insertPatientHistory(patientHistory);
   }
 
   Future<void> _captureImage() async {
@@ -468,10 +520,31 @@ class _CameraPageState extends State<Camera>
                             ),
                             SizedBox(height: 8),
                             TextFormField(
-                              controller: _dobController,
+                              controller:
+                                  _dobController, // Ensure this controller is declared
                               decoration: InputDecoration(
-                                  labelText: 'Date of Birth',
-                                  border: OutlineInputBorder()),
+                                labelText: 'Date Of Birth',
+                                border: OutlineInputBorder(),
+                                suffixIcon: Icon(Icons.calendar_today),
+                              ),
+                              readOnly: true, // Prevent manual text input
+                              onTap: () async {
+                                DateTime? pickedDate = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2100),
+                                );
+
+                                if (pickedDate != null) {
+                                  // Check if a date was selected
+                                  String formattedDate =
+                                      DateFormat('yyyy-MM-dd')
+                                          .format(pickedDate); // Format date
+                                  _dobController.text =
+                                      formattedDate; // Update the controller
+                                }
+                              },
                             ),
                             SizedBox(height: 8),
                             TextFormField(
@@ -486,6 +559,34 @@ class _CameraPageState extends State<Camera>
                               decoration: InputDecoration(
                                   labelText: 'Address',
                                   border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller:
+                                  _appointmentDateController, // Ensure this controller is declared
+                              decoration: InputDecoration(
+                                labelText: 'Apointment Date',
+                                border: OutlineInputBorder(),
+                                suffixIcon: Icon(Icons.calendar_today),
+                              ),
+                              readOnly: true, // Prevent manual text input
+                              onTap: () async {
+                                DateTime? pickedDate = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2100),
+                                );
+
+                                if (pickedDate != null) {
+                                  // Check if a date was selected
+                                  String formattedDate =
+                                      DateFormat('yyyy-MM-dd')
+                                          .format(pickedDate); // Format date
+                                  _appointmentDateController.text =
+                                      formattedDate; // Update the controller
+                                }
+                              },
                             ),
                             SizedBox(height: 16),
                             ElevatedButton(
@@ -540,10 +641,31 @@ class _CameraPageState extends State<Camera>
                             ),
                             SizedBox(height: 8),
                             TextFormField(
-                              controller: _existDobController,
+                              controller:
+                                  _existDobController, // Ensure this controller is declared
                               decoration: InputDecoration(
-                                  labelText: 'Date of Birth',
-                                  border: OutlineInputBorder()),
+                                labelText: 'Date Of Birth',
+                                border: OutlineInputBorder(),
+                                suffixIcon: Icon(Icons.calendar_today),
+                              ),
+                              readOnly: true, // Prevent manual text input
+                              onTap: () async {
+                                DateTime? pickedDate = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2100),
+                                );
+
+                                if (pickedDate != null) {
+                                  // Check if a date was selected
+                                  String formattedDate =
+                                      DateFormat('yyyy-MM-dd')
+                                          .format(pickedDate); // Format date
+                                  _existDobController.text =
+                                      formattedDate; // Update the controller
+                                }
+                              },
                             ),
                             SizedBox(height: 8),
                             TextFormField(
@@ -558,6 +680,34 @@ class _CameraPageState extends State<Camera>
                               decoration: InputDecoration(
                                   labelText: 'Address',
                                   border: OutlineInputBorder()),
+                            ),
+                            SizedBox(height: 8),
+                            TextFormField(
+                              controller:
+                                  _existAppointmentDateController, // Ensure this controller is declared
+                              decoration: InputDecoration(
+                                labelText: 'Apointment Date',
+                                border: OutlineInputBorder(),
+                                suffixIcon: Icon(Icons.calendar_today),
+                              ),
+                              readOnly: true, // Prevent manual text input
+                              onTap: () async {
+                                DateTime? pickedDate = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2100),
+                                );
+
+                                if (pickedDate != null) {
+                                  // Check if a date was selected
+                                  String formattedDate =
+                                      DateFormat('yyyy-MM-dd')
+                                          .format(pickedDate); // Format date
+                                  _existAppointmentDateController.text =
+                                      formattedDate; // Update the controller
+                                }
+                              },
                             ),
                             SizedBox(height: 16),
                             ElevatedButton(
@@ -631,8 +781,9 @@ class _CameraPageState extends State<Camera>
                       ),
                     ],
                   ),
-                  SizedBox(height: 10),
-                  Expanded(
+                  Container(
+                    height: 205, // Adjust height as needed
+                    padding: EdgeInsets.only(top: 16),
                     child: GridView.builder(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
@@ -664,7 +815,7 @@ class _CameraPageState extends State<Camera>
                         );
                       },
                     ),
-                  ),
+                  )
                 ],
               ),
             ),
@@ -685,29 +836,42 @@ class VideoPlayerWidget extends StatefulWidget {
 }
 
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller; // ✅ Use nullable controller
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.file(File(widget.videoPath))
-      ..initialize().then((_) {
-        setState(() {});
-      });
+    _initializeVideo();
+  }
+
+  void _initializeVideo() async {
+    if (widget.videoPath.isNotEmpty && File(widget.videoPath).existsSync()) {
+      _controller = VideoPlayerController.file(File(widget.videoPath))
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() {});
+            _controller!.play(); // Auto-play
+          }
+        }).catchError((error) {
+          debugPrint("Error initializing video: $error");
+        });
+    } else {
+      debugPrint("Invalid video path: ${widget.videoPath}");
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose(); // ✅ Null check before disposal
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return _controller.value.isInitialized
+    return _controller != null && _controller!.value.isInitialized
         ? AspectRatio(
-            aspectRatio: _controller.value.aspectRatio,
-            child: VideoPlayer(_controller),
+            aspectRatio: _controller!.value.aspectRatio,
+            child: VideoPlayer(_controller!),
           )
         : Center(child: CircularProgressIndicator());
   }
