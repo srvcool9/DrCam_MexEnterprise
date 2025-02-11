@@ -32,7 +32,8 @@ class _CameraPageState extends State<Camera>
   late VideoPlayerController _videoPlayerController;
   List<Map<String, dynamic>> capturedItems = [];
   late FlutterFFmpeg _flutterFFmpeg; // FlutterFFmpeg instance
-  String? videoFilePath; // Path to save the video
+  String? videoFilePath; // Path to save the video4
+  MediaRecorder? _mediaRecorder; // Define MediaRecorder instance
 
   final _formKey = GlobalKey<FormState>();
 
@@ -386,61 +387,152 @@ class _CameraPageState extends State<Camera>
   }
 
   // Simulate video recording by saving the stream using flutter_ffmpeg
+  // Future<void> _startRecording() async {
+  //   if (_mediaStream != null) {
+  //     final appDocumentsDir = await getApplicationDocumentsDirectory();
+  //     final videoDir = Directory(join(appDocumentsDir.path, 'videos'));
+
+  //     // Create the directory if it doesn't exist
+  //     if (!await videoDir.exists()) {
+  //       await videoDir.create(recursive: true);
+  //     }
+
+  //     // Define the video path with timestamp to avoid name conflicts
+  //     videoFilePath = join(
+  //         videoDir.path, 'video_${DateTime.now().millisecondsSinceEpoch}.mp4');
+
+  //     setState(() {
+  //       capturedItems.insert(0, {
+  //         'type': 'loading', // Show loading indicator first
+  //         'data': 'loading',
+  //         'datetime': DateTime.now(),
+  //       });
+  //     });
+
+  //     // Simulate video recording (this should be replaced with actual recording logic)
+  //     await Future.delayed(Duration(seconds: 3)); // Simulate recording time
+
+  //     // Once the video is "recorded", replace the loading state with the actual file path
+  //     setState(() {
+  //       capturedItems[0] = {
+  //         'type': 'video',
+  //         'data': videoFilePath,
+  //         'datetime': DateTime.now(),
+  //       };
+  //     });
+
+  //     print("Video saved to: $videoFilePath");
+  //   }
+  // }
+
   Future<void> _startRecording() async {
-    if (_mediaStream != null) {
+    if (_mediaStream != null && !isRecording) {
       final appDocumentsDir = await getApplicationDocumentsDirectory();
       final videoDir = Directory(join(appDocumentsDir.path, 'videos'));
 
-      // Create the directory if it doesn't exist
       if (!await videoDir.exists()) {
         await videoDir.create(recursive: true);
       }
 
-      // Define the video path with timestamp to avoid name conflicts
       videoFilePath = join(
           videoDir.path, 'video_${DateTime.now().millisecondsSinceEpoch}.mp4');
 
+      // Initialize fresh and clear previous MediaRecorder
+
+       if (_mediaRecorder != null) {
+      try {
+        await _mediaRecorder!.stop();
+      } catch (e) {
+        print("Error stopping previous recorder: $e");
+      }
+      _mediaRecorder = null;
+    }
+
+    // ✅ Ensure `_mediaRecorder` is initialized
+    try {
+      _mediaRecorder = MediaRecorder();
+      print("MediaRecorder initialized successfully");
+    } catch (e) {
+      print("Failed to initialize MediaRecorder: $e");
+      return;
+    }
+
+
+      MediaStreamTrack? videoTrack = _mediaStream!.getVideoTracks().isNotEmpty
+          ? _mediaStream!.getVideoTracks().first
+          : null;
+
+      if (videoTrack == null) {
+        print("Error: No video track found in stream!");
+        return;
+      }
+      try {
+        await _mediaRecorder!.start(
+          videoFilePath!,
+          videoTrack: videoTrack,
+          audioChannel: null,
+        );
+        print("Recording started...");
+      } catch (e, stackTrace) {
+        print("Recording failed: $e");
+        print(stackTrace);
+        return;
+      }
+
+      print("Recording started...");
+
+      isRecording = true;
+
       setState(() {
         capturedItems.insert(0, {
-          'type': 'loading', // Show loading indicator first
+          'type': 'loading',
           'data': 'loading',
           'datetime': DateTime.now(),
         });
       });
 
-      // Simulate video recording (this should be replaced with actual recording logic)
-      await Future.delayed(Duration(seconds: 3)); // Simulate recording time
-
-      // Once the video is "recorded", replace the loading state with the actual file path
-      setState(() {
-        capturedItems[0] = {
-          'type': 'video',
-          'data': videoFilePath,
-          'datetime': DateTime.now(),
-        };
-      });
-
-      print("Video saved to: $videoFilePath");
+      print("Recording started...");
     }
   }
 
-  Future<void> _stopRecording() async {
-    // Stop the actual recording process here.
-    // Simulate video recording stop
-    await Future.delayed(
-        Duration(seconds: 1)); // Simulate delay in stopping the recording
+ 
+Future<void> _stopRecording() async {
+  if (!isRecording || _mediaRecorder == null) return;
 
-    // Save the video file using flutter_ffmpeg
-    if (videoFilePath != null) {
-      final String command =
-          '-y -f lavfi -t 10 -i anullsrc=r=44100:cl=stereo -t 10 -c:v libx264 -r 30 $videoFilePath'; // Example command for FFmpeg
-      await _flutterFFmpeg.execute(command);
-    }
-
-    setState(() {
-      isRecording = false; // Stop recording
-    });
+  try {
+    await _mediaRecorder!.stop(); // ✅ Ensure MediaRecorder stops recording
+    print("Recording stopped successfully");
+  } catch (e) {
+    print("Error stopping recording: $e");
   }
+
+  isRecording = false;
+
+  if (videoFilePath != null) {
+    final String outputPath = videoFilePath!.replaceAll('.mp4', '_converted.mp4');
+
+    // ✅ Convert the recorded video properly using FFmpeg
+    final String command =
+        '-i $videoFilePath -c:v libx264 -preset ultrafast -crf 23 -c:a aac -b:a 128k -movflags +faststart $outputPath';
+
+    int result = await _flutterFFmpeg.execute(command);
+
+    if (result == 0) {
+      print("Video conversion successful: $outputPath");
+      videoFilePath = outputPath; // ✅ Use converted file
+    } else {
+      print("FFmpeg failed to process video");
+    }
+  }
+
+  setState(() {
+    capturedItems[0] = {
+      'type': 'video',
+      'data': videoFilePath,
+      'datetime': DateTime.now(),
+    };
+  });
+}
 
   @override
   void dispose() {
@@ -804,14 +896,13 @@ class _CameraPageState extends State<Camera>
                                   item['data'],
                                   fit: BoxFit.cover,
                                 )
-                              : item['type'] == 'video'
-                                  ? VideoPlayerWidget(
-                                      videoPath: item[
-                                          'data']) // Display video using video_player
-                                  : item['type'] == 'loading'
-                                      ? Center(
-                                          child: CircularProgressIndicator())
-                                      : Center(child: Icon(Icons.videocam)),
+                              // : item['type'] == 'video'
+                              //     ? VideoPlayerWidget(
+                              //         videoPath: item[
+                              //             'data']) // Display video using video_player
+                              : item['type'] == 'loading'
+                                  ? Center(child: CircularProgressIndicator())
+                                  : Center(child: Icon(Icons.videocam)),
                         );
                       },
                     ),
@@ -826,53 +917,53 @@ class _CameraPageState extends State<Camera>
   }
 }
 
-class VideoPlayerWidget extends StatefulWidget {
-  final String videoPath;
+// class VideoPlayerWidget extends StatefulWidget {
+//   final String videoPath;
 
-  const VideoPlayerWidget({required this.videoPath});
+//   const VideoPlayerWidget({required this.videoPath});
 
-  @override
-  _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
-}
+//   @override
+//   _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
+// }
 
-class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  VideoPlayerController? _controller; // ✅ Use nullable controller
+// class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+//   VideoPlayerController? _controller; // ✅ Use nullable controller
 
-  @override
-  void initState() {
-    super.initState();
-    _initializeVideo();
-  }
+//   @override
+//   void initState() {
+//     super.initState();
+//     _initializeVideo();
+//   }
 
-  void _initializeVideo() async {
-    if (widget.videoPath.isNotEmpty && File(widget.videoPath).existsSync()) {
-      _controller = VideoPlayerController.file(File(widget.videoPath))
-        ..initialize().then((_) {
-          if (mounted) {
-            setState(() {});
-            _controller!.play(); // Auto-play
-          }
-        }).catchError((error) {
-          debugPrint("Error initializing video: $error");
-        });
-    } else {
-      debugPrint("Invalid video path: ${widget.videoPath}");
-    }
-  }
+//   void _initializeVideo() async {
+//     if (widget.videoPath.isNotEmpty && File(widget.videoPath).existsSync()) {
+//       _controller = VideoPlayerController.file(File(widget.videoPath))
+//         ..initialize().then((_) {
+//           if (mounted) {
+//             setState(() {});
+//             _controller!.play(); // Auto-play
+//           }
+//         }).catchError((error) {
+//           debugPrint("Error initializing video: $error");
+//         });
+//     } else {
+//       debugPrint("Invalid video path: ${widget.videoPath}");
+//     }
+//   }
 
-  @override
-  void dispose() {
-    _controller?.dispose(); // ✅ Null check before disposal
-    super.dispose();
-  }
+//   @override
+//   void dispose() {
+//     _controller?.dispose(); // ✅ Null check before disposal
+//     super.dispose();
+//   }
 
-  @override
-  Widget build(BuildContext context) {
-    return _controller != null && _controller!.value.isInitialized
-        ? AspectRatio(
-            aspectRatio: _controller!.value.aspectRatio,
-            child: VideoPlayer(_controller!),
-          )
-        : Center(child: CircularProgressIndicator());
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return _controller != null && _controller!.value.isInitialized
+//         ? AspectRatio(
+//             aspectRatio: _controller!.value.aspectRatio,
+//             child: VideoPlayer(_controller!),
+//           )
+//         : Center(child: CircularProgressIndicator());
+//   }
+// }

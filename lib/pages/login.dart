@@ -183,7 +183,7 @@ class LoginState extends State<Login> {
                     children: [
                       // Header
                       Text(
-                        _agencyName.isNotEmpty ? _agencyName : "Loading...",
+                        _agencyName.isNotEmpty ? _agencyName : "Mex Enterprise",
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
