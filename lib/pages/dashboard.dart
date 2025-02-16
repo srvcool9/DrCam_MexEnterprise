@@ -4,6 +4,7 @@ import 'package:doctorcam/pages/landing-screen.dart';
 import 'package:doctorcam/pages/login.dart';
 import 'package:doctorcam/pages/patient-history-screen.dart';
 import 'package:doctorcam/pages/pdfexamplescreen.dart';
+import 'package:doctorcam/pages/test-screen.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:doctorcam/models/doctor_profile.dart';
@@ -34,6 +35,7 @@ class DashboardState extends State<Dashboard> {
     Camera(),
     PatientHistoryScreen(),
     DoctorProfileScreen(),
+    TestScreen(),
     PDFExampleScreen(),
     ExitPage(onExit: () {
       exit(0);
@@ -87,6 +89,7 @@ class DashboardState extends State<Dashboard> {
                 _buildNavItem('Camera', 1),
                 _buildNavItem('Patient History', 2),
                 _buildNavItem('Settings', 3),
+                _buildNavItem('Test',4)
               ],
             ),
             // Logout button

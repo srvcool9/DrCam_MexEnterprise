@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:doctorcam/models/patient_history.dart';
+import 'package:doctorcam/models/patient_images.dart';
 import 'package:doctorcam/models/patient_master.dart';
 import 'package:doctorcam/repository/PatientHistoryRepository.dart';
+import 'package:doctorcam/repository/PatientImagesRepository.dart';
 import 'package:doctorcam/repository/PatientRepository.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -12,7 +17,8 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io'; // Required for file handling
-import 'package:flutter_ffmpeg/flutter_ffmpeg.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+
 import 'package:permission_handler/permission_handler.dart';
 
 // Add flutter_ffmpeg
@@ -31,9 +37,10 @@ class _CameraPageState extends State<Camera>
   final GlobalKey _videoKey = GlobalKey();
   late VideoPlayerController _videoPlayerController;
   List<Map<String, dynamic>> capturedItems = [];
-  late FlutterFFmpeg _flutterFFmpeg; // FlutterFFmpeg instance
+  List<String> imagesBase64List = []; // FlutterFFmpeg instance
   String? videoFilePath; // Path to save the video4
   MediaRecorder? _mediaRecorder; // Define MediaRecorder instance
+  Uint8List? _recordedData;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -47,6 +54,7 @@ class _CameraPageState extends State<Camera>
       TextEditingController();
   late Patientrepository patientrepository;
   late Patienthistoryrepository patientHistoryRepository;
+  late Patientimagesrepository patientimagesrepository;
 
   final _updateFormKey = GlobalKey<FormState>();
   final TextEditingController _existPatientIdController =
@@ -65,7 +73,8 @@ class _CameraPageState extends State<Camera>
     super.initState();
     patientrepository = Patientrepository();
     patientHistoryRepository = Patienthistoryrepository();
-    _flutterFFmpeg = FlutterFFmpeg();
+    patientimagesrepository = Patientimagesrepository();
+
     _tabController = TabController(length: 2, vsync: this);
 
     _requestPermissions().then((_) {
@@ -130,6 +139,9 @@ class _CameraPageState extends State<Camera>
         final mediaStream = await navigator.mediaDevices.getUserMedia({
           'video': {
             'deviceId': selectedDeviceId,
+            'width': {'ideal': 3500}, // Set desired width
+            'height': {'ideal': 1000}, // Set desired height
+            'frameRate': 200,
           },
           'audio': true,
         });
@@ -248,7 +260,8 @@ class _CameraPageState extends State<Camera>
     );
 
     if (patientExists != null) {
-      setState(() {
+      setState(() async {
+        loadPatientImages(patientExists.patientId!);
         _existPatientIdController.text = patientExists.patientId.toString();
         _existPatientNameController.text = patientExists.patientName;
         _existGenderController.text = patientExists.gender;
@@ -258,6 +271,7 @@ class _CameraPageState extends State<Camera>
       });
     } else if (patientPersist != null) {
       setState(() {
+        loadPatientImages(patientPersist.patientId!);
         _existPatientIdController.text = patientPersist.patientId.toString();
         _existPatientNameController.text = patientPersist.patientName;
         _existGenderController.text = patientPersist.gender;
@@ -267,6 +281,26 @@ class _CameraPageState extends State<Camera>
       });
     } else {
       showErrorNotification(context, "Patient not found.");
+    }
+  }
+
+  void loadPatientImages(int patientId) async {
+    List<String> images =
+        await patientimagesrepository.getImagesByPatientId(patientId);
+
+    if (images.isNotEmpty) {
+      List<Map<String, dynamic>> newItems = images.map((img) {
+        return {
+          'type': 'image',
+          'data': base64Decode(img),
+          'datetime': DateFormat('dd-MM-yyyy').format(DateTime.now())
+        };
+      }).toList();
+
+      setState(() {
+        imagesBase64List.addAll(images);
+        capturedItems = [...newItems];
+      });
     }
   }
 
@@ -281,7 +315,9 @@ class _CameraPageState extends State<Camera>
         address: _existAddressController.text,
       );
 
-      int patientId = await patientrepository.updatePatient(patient);
+      await patientrepository.updatePatient(patient);
+      int patientId = int.tryParse(_existPatientIdController.text) ?? 0;
+
       if (patientId != null) {
         final newApointment = PatientHistory(
           id: null,
@@ -289,7 +325,10 @@ class _CameraPageState extends State<Camera>
           appointmentDate: _existAppointmentDateController.text,
           createdOn: DateTime.now().toString(),
         );
-        patientHistoryRepository.insertPatientHistory(newApointment);
+        int historyId =
+            await patientHistoryRepository.insertPatientHistory(newApointment);
+        patientimagesrepository
+            .insertImageList(mapPatientImages(patientId, historyId));
       }
       showSuccessNotification(context, "Patient updated successfully.");
     } catch (e, stackTrace) {
@@ -347,7 +386,28 @@ class _CameraPageState extends State<Camera>
         patientId: patientId,
         appointmentDate: _appointmentDateController.text,
         createdOn: DateTime.now().toString());
-    return await patientHistoryRepository.insertPatientHistory(patientHistory);
+    int savedHistoryId =
+        await patientHistoryRepository.insertPatientHistory(patientHistory);
+    patientimagesrepository
+        .insertImageList(mapPatientImages(patientId, savedHistoryId));
+    return savedHistoryId;
+  }
+
+  List<PatientImages> mapPatientImages(int patientId, int historyId) {
+    List<PatientImages> imageList = [];
+    if (imagesBase64List.isNotEmpty) {
+      imagesBase64List.forEach((i) {
+        imageList.add(PatientImages(
+            id: null,
+            patientId: patientId,
+            historyId: historyId,
+            imageBase64: i,
+            createdOn: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())));
+      });
+      return imageList;
+    } else {
+      return [];
+    }
   }
 
   Future<void> _captureImage() async {
@@ -358,6 +418,11 @@ class _CameraPageState extends State<Camera>
       ByteData? byteData =
           await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData != null) {
+        String base64String = base64Encode(byteData.buffer.asUint8List());
+        setState(() {
+          imagesBase64List.add(base64String);
+        });
+
         setState(() {
           capturedItems.insert(0, {
             'type': 'image',
@@ -371,549 +436,510 @@ class _CameraPageState extends State<Camera>
     }
   }
 
-  void _toggleRecording() {
-    setState(() {
-      isRecording = !isRecording;
-    });
+  void toggleRecording() {
     if (isRecording) {
-      // Start recording (just simulate it here)
-      print('Recording started');
-      _startRecording();
-    } else {
-      // Stop recording
-      print('Recording stopped');
       _stopRecording();
+    } else {
+      _startRecording();
     }
   }
 
   // Simulate video recording by saving the stream using flutter_ffmpeg
-  // Future<void> _startRecording() async {
-  //   if (_mediaStream != null) {
-  //     final appDocumentsDir = await getApplicationDocumentsDirectory();
-  //     final videoDir = Directory(join(appDocumentsDir.path, 'videos'));
-
-  //     // Create the directory if it doesn't exist
-  //     if (!await videoDir.exists()) {
-  //       await videoDir.create(recursive: true);
-  //     }
-
-  //     // Define the video path with timestamp to avoid name conflicts
-  //     videoFilePath = join(
-  //         videoDir.path, 'video_${DateTime.now().millisecondsSinceEpoch}.mp4');
-
-  //     setState(() {
-  //       capturedItems.insert(0, {
-  //         'type': 'loading', // Show loading indicator first
-  //         'data': 'loading',
-  //         'datetime': DateTime.now(),
-  //       });
-  //     });
-
-  //     // Simulate video recording (this should be replaced with actual recording logic)
-  //     await Future.delayed(Duration(seconds: 3)); // Simulate recording time
-
-  //     // Once the video is "recorded", replace the loading state with the actual file path
-  //     setState(() {
-  //       capturedItems[0] = {
-  //         'type': 'video',
-  //         'data': videoFilePath,
-  //         'datetime': DateTime.now(),
-  //       };
-  //     });
-
-  //     print("Video saved to: $videoFilePath");
-  //   }
-  // }
 
   Future<void> _startRecording() async {
-    if (_mediaStream != null && !isRecording) {
+    if (_mediaStream != null) {
       final appDocumentsDir = await getApplicationDocumentsDirectory();
       final videoDir = Directory(join(appDocumentsDir.path, 'videos'));
-
       if (!await videoDir.exists()) {
         await videoDir.create(recursive: true);
       }
-
       videoFilePath = join(
           videoDir.path, 'video_${DateTime.now().millisecondsSinceEpoch}.mp4');
 
-      // Initialize fresh and clear previous MediaRecorder
-
-       if (_mediaRecorder != null) {
-      try {
-        await _mediaRecorder!.stop();
-      } catch (e) {
-        print("Error stopping previous recorder: $e");
-      }
-      _mediaRecorder = null;
-    }
-
-    // ✅ Ensure `_mediaRecorder` is initialized
-    try {
-      _mediaRecorder = MediaRecorder();
-      print("MediaRecorder initialized successfully");
-    } catch (e) {
-      print("Failed to initialize MediaRecorder: $e");
-      return;
-    }
-
-
-      MediaStreamTrack? videoTrack = _mediaStream!.getVideoTracks().isNotEmpty
-          ? _mediaStream!.getVideoTracks().first
-          : null;
-
-      if (videoTrack == null) {
-        print("Error: No video track found in stream!");
-        return;
-      }
-      try {
-        await _mediaRecorder!.start(
-          videoFilePath!,
-          videoTrack: videoTrack,
-          audioChannel: null,
-        );
-        print("Recording started...");
-      } catch (e, stackTrace) {
-        print("Recording failed: $e");
-        print(stackTrace);
-        return;
+      File videoFile = File(videoFilePath!);
+      if (videoFile.existsSync()) {
+        print("Warning: File already exists, overwriting...");
       }
 
-      print("Recording started...");
+      // FFmpeg command to record video from screen capture
+      String command =
+          '-y -f gdigrab -framerate 30 -i desktop -c:v libx264 -pix_fmt yuv420p $videoFilePath';
 
-      isRecording = true;
-
-      setState(() {
-        capturedItems.insert(0, {
-          'type': 'loading',
-          'data': 'loading',
-          'datetime': DateTime.now(),
-        });
+      await FFmpegKit.execute(command).then((session) async {
+        final returnCode = await session.getReturnCode();
+        if (ReturnCode.isSuccess(returnCode)) {
+          print("Recording saved to $videoFilePath");
+        } else {
+          print("Recording failed!");
+        }
       });
-
-      print("Recording started...");
     }
   }
 
- 
-Future<void> _stopRecording() async {
-  if (!isRecording || _mediaRecorder == null) return;
-
-  try {
-    await _mediaRecorder!.stop(); // ✅ Ensure MediaRecorder stops recording
-    print("Recording stopped successfully");
-  } catch (e) {
-    print("Error stopping recording: $e");
+  Future<void> _stopRecording() async {
+    await FFmpegKit.cancel(); // Stops the FFmpeg process
   }
-
-  isRecording = false;
-
-  if (videoFilePath != null) {
-    final String outputPath = videoFilePath!.replaceAll('.mp4', '_converted.mp4');
-
-    // ✅ Convert the recorded video properly using FFmpeg
-    final String command =
-        '-i $videoFilePath -c:v libx264 -preset ultrafast -crf 23 -c:a aac -b:a 128k -movflags +faststart $outputPath';
-
-    int result = await _flutterFFmpeg.execute(command);
-
-    if (result == 0) {
-      print("Video conversion successful: $outputPath");
-      videoFilePath = outputPath; // ✅ Use converted file
-    } else {
-      print("FFmpeg failed to process video");
-    }
-  }
-
-  setState(() {
-    capturedItems[0] = {
-      'type': 'video',
-      'data': videoFilePath,
-      'datetime': DateTime.now(),
-    };
-  });
-}
 
   @override
   void dispose() {
     _renderer.dispose();
     _tabController.dispose();
     _mediaStream?.getTracks().forEach((track) => track.stop());
-
-    if (_videoPlayerController != null &&
-        _videoPlayerController.value.isInitialized) {
-      _videoPlayerController.dispose();
-    }
-
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        centerTitle: false,
-        elevation: 1.0,
-        foregroundColor: Colors.black,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: Colors.black,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: Colors.blue,
-                    tabs: [
-                      Tab(text: 'New Patient'),
-                      Tab(text: 'Existing Patient'),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          centerTitle: false,
+          elevation: 1.0,
+          foregroundColor: Colors.black,
+        ),
+        body: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight:
+                  MediaQuery.of(context).size.height, // Ensures scrolling
+            ),
+            child: Column(
+              children: [
+                Container(
+                    height: 550,
+                    child: Row(children: [
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment
+                              .start, // Aligns form fields to left
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            TextFormField(
-                              controller: _patientIdController,
-                              decoration: InputDecoration(
-                                  labelText: 'Patient Id',
-                                  border: OutlineInputBorder()),
-                              validator: (value) => value!.isEmpty
-                                  ? 'Please enter patient ID'
-                                  : null,
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller: _patientNameController,
-                              decoration: InputDecoration(
-                                  labelText: 'Patient Name',
-                                  border: OutlineInputBorder()),
-                              validator: (value) => value!.isEmpty
-                                  ? 'Please enter patient name'
-                                  : null,
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller: _genderController,
-                              decoration: InputDecoration(
-                                  labelText: 'Gender',
-                                  border: OutlineInputBorder()),
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller:
-                                  _dobController, // Ensure this controller is declared
-                              decoration: InputDecoration(
-                                labelText: 'Date Of Birth',
-                                border: OutlineInputBorder(),
-                                suffixIcon: Icon(Icons.calendar_today),
-                              ),
-                              readOnly: true, // Prevent manual text input
-                              onTap: () async {
-                                DateTime? pickedDate = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime(2100),
-                                );
-
-                                if (pickedDate != null) {
-                                  // Check if a date was selected
-                                  String formattedDate =
-                                      DateFormat('yyyy-MM-dd')
-                                          .format(pickedDate); // Format date
-                                  _dobController.text =
-                                      formattedDate; // Update the controller
-                                }
-                              },
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller: _phoneController,
-                              decoration: InputDecoration(
-                                  labelText: 'Phone No.',
-                                  border: OutlineInputBorder()),
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller: _addressController,
-                              decoration: InputDecoration(
-                                  labelText: 'Address',
-                                  border: OutlineInputBorder()),
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller:
-                                  _appointmentDateController, // Ensure this controller is declared
-                              decoration: InputDecoration(
-                                labelText: 'Apointment Date',
-                                border: OutlineInputBorder(),
-                                suffixIcon: Icon(Icons.calendar_today),
-                              ),
-                              readOnly: true, // Prevent manual text input
-                              onTap: () async {
-                                DateTime? pickedDate = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime(2100),
-                                );
-
-                                if (pickedDate != null) {
-                                  // Check if a date was selected
-                                  String formattedDate =
-                                      DateFormat('yyyy-MM-dd')
-                                          .format(pickedDate); // Format date
-                                  _appointmentDateController.text =
-                                      formattedDate; // Update the controller
-                                }
-                              },
+                            TabBar(
+                              controller: _tabController,
+                              labelColor: Colors.black,
+                              unselectedLabelColor: Colors.grey,
+                              indicatorColor: Colors.blue,
+                              tabs: [
+                                Tab(text: 'New Patient'),
+                                Tab(text: 'Existing Patient'),
+                              ],
                             ),
                             SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () {
-                                savePatient(context);
-                              },
-                              child: Text('Save'),
-                              style: ElevatedButton.styleFrom(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 40, vertical: 15),
-                                backgroundColor: Colors.teal,
-                                foregroundColor: Colors.white,
+                            Expanded(
+                                child: Padding(
+                              padding: EdgeInsets.only(left: 20, top: 10),
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment
+                                        .start, // Aligns form fields to left
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      TextFormField(
+                                        controller: _patientIdController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Patient Id',
+                                            border: OutlineInputBorder()),
+                                        validator: (value) => value!.isEmpty
+                                            ? 'Please enter patient ID'
+                                            : null,
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _patientNameController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Patient Name',
+                                            border: OutlineInputBorder()),
+                                        validator: (value) => value!.isEmpty
+                                            ? 'Please enter patient name'
+                                            : null,
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _genderController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Gender',
+                                            border: OutlineInputBorder()),
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller:
+                                            _dobController, // Ensure this controller is declared
+                                        decoration: InputDecoration(
+                                          labelText: 'Date Of Birth',
+                                          border: OutlineInputBorder(),
+                                          suffixIcon:
+                                              Icon(Icons.calendar_today),
+                                        ),
+                                        readOnly:
+                                            true, // Prevent manual text input
+                                        onTap: () async {
+                                          DateTime? pickedDate =
+                                              await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime.now(),
+                                            firstDate: DateTime(2000),
+                                            lastDate: DateTime(2100),
+                                          );
+
+                                          if (pickedDate != null) {
+                                            // Check if a date was selected
+                                            String formattedDate =
+                                                DateFormat('yyyy-MM-dd').format(
+                                                    pickedDate); // Format date
+                                            _dobController.text =
+                                                formattedDate; // Update the controller
+                                          }
+                                        },
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _phoneController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Phone No.',
+                                            border: OutlineInputBorder()),
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _addressController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Address',
+                                            border: OutlineInputBorder()),
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller:
+                                            _appointmentDateController, // Ensure this controller is declared
+                                        decoration: InputDecoration(
+                                          labelText: 'Apointment Date',
+                                          border: OutlineInputBorder(),
+                                          suffixIcon:
+                                              Icon(Icons.calendar_today),
+                                        ),
+                                        readOnly:
+                                            true, // Prevent manual text input
+                                        onTap: () async {
+                                          DateTime? pickedDate =
+                                              await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime.now(),
+                                            firstDate: DateTime(2000),
+                                            lastDate: DateTime(2100),
+                                          );
+
+                                          if (pickedDate != null) {
+                                            // Check if a date was selected
+                                            String formattedDate =
+                                                DateFormat('yyyy-MM-dd').format(
+                                                    pickedDate); // Format date
+                                            _appointmentDateController.text =
+                                                formattedDate; // Update the controller
+                                          }
+                                        },
+                                      ),
+                                      SizedBox(height: 16),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          savePatient(context);
+                                        },
+                                        child: Text('Save'),
+                                        style: ElevatedButton.styleFrom(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 40, vertical: 15),
+                                          backgroundColor: Colors.teal,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      TextFormField(
+                                        controller: _existPatientIdController,
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              'Serach By PaitentId or Phone',
+                                          border: OutlineInputBorder(),
+                                          suffixIcon: IconButton(
+                                            icon: Icon(Icons.search),
+                                            onPressed: () {
+                                              _loadPatientDate(context);
+                                            },
+                                          ),
+                                        ),
+                                        validator: (value) => value!.isEmpty
+                                            ? 'Please enter patient ID'
+                                            : null,
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _existPatientNameController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Patient Name',
+                                            border: OutlineInputBorder()),
+                                        validator: (value) => value!.isEmpty
+                                            ? 'Please enter patient name'
+                                            : null,
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _existGenderController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Gender',
+                                            border: OutlineInputBorder()),
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller:
+                                            _existDobController, // Ensure this controller is declared
+                                        decoration: InputDecoration(
+                                          labelText: 'Date Of Birth',
+                                          border: OutlineInputBorder(),
+                                          suffixIcon:
+                                              Icon(Icons.calendar_today),
+                                        ),
+                                        readOnly:
+                                            true, // Prevent manual text input
+                                        onTap: () async {
+                                          DateTime? pickedDate =
+                                              await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime.now(),
+                                            firstDate: DateTime(2000),
+                                            lastDate: DateTime(2100),
+                                          );
+
+                                          if (pickedDate != null) {
+                                            // Check if a date was selected
+                                            String formattedDate =
+                                                DateFormat('yyyy-MM-dd').format(
+                                                    pickedDate); // Format date
+                                            _existDobController.text =
+                                                formattedDate; // Update the controller
+                                          }
+                                        },
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _existPhoneController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Phone No.',
+                                            border: OutlineInputBorder()),
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller: _existAddressController,
+                                        decoration: InputDecoration(
+                                            labelText: 'Address',
+                                            border: OutlineInputBorder()),
+                                      ),
+                                      SizedBox(height: 8),
+                                      TextFormField(
+                                        controller:
+                                            _existAppointmentDateController, // Ensure this controller is declared
+                                        decoration: InputDecoration(
+                                          labelText: 'Apointment Date',
+                                          border: OutlineInputBorder(),
+                                          suffixIcon:
+                                              Icon(Icons.calendar_today),
+                                        ),
+                                        readOnly:
+                                            true, // Prevent manual text input
+                                        onTap: () async {
+                                          DateTime? pickedDate =
+                                              await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime.now(),
+                                            firstDate: DateTime(2000),
+                                            lastDate: DateTime(2100),
+                                          );
+
+                                          if (pickedDate != null) {
+                                            // Check if a date was selected
+                                            String formattedDate =
+                                                DateFormat('yyyy-MM-dd').format(
+                                                    pickedDate); // Format date
+                                            _existAppointmentDateController
+                                                    .text =
+                                                formattedDate; // Update the controller
+                                          }
+                                        },
+                                      ),
+                                      SizedBox(height: 16),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          updateExistingPatient(context);
+                                        },
+                                        child: Text('Update'),
+                                        style: ElevatedButton.styleFrom(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 40, vertical: 15),
+                                          backgroundColor: Colors.teal,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                ],
                               ),
-                            )
+                            )),
                           ],
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      SizedBox(width: 20),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
                           children: [
-                            TextFormField(
-                              controller: _existPatientIdController,
-                              decoration: InputDecoration(
-                                labelText: 'Serach By PaitentId or Phone',
-                                border: OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  icon: Icon(Icons.search),
-                                  onPressed: () {
-                                    _loadPatientDate(context);
-                                  },
+                            Text(
+                              'Camera',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 18),
+                            ),
+                            SizedBox(height: 30),
+                            Expanded(
+                              child: RepaintBoundary(
+                                key: _videoKey,
+                                child: Container(
+                                  width: 900,
+                                  height: 900,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.black),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: _renderer.textureId != null
+                                      ? ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          child: RTCVideoView(_renderer),
+                                        )
+                                      : Center(
+                                          child: CircularProgressIndicator()),
                                 ),
                               ),
-                              validator: (value) => value!.isEmpty
-                                  ? 'Please enter patient ID'
-                                  : null,
                             ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller: _existPatientNameController,
-                              decoration: InputDecoration(
-                                  labelText: 'Patient Name',
-                                  border: OutlineInputBorder()),
-                              validator: (value) => value!.isEmpty
-                                  ? 'Please enter patient name'
-                                  : null,
+                            SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: _captureImage,
+                                  icon: Icon(Icons.camera_alt),
+                                  label: Text('Capture'),
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.teal,
+                                      foregroundColor: Colors.white),
+                                ),
+                                SizedBox(width: 16),
+                                ElevatedButton.icon(
+                                  onPressed: toggleRecording,
+                                  icon: Icon(isRecording
+                                      ? Icons.stop
+                                      : Icons.videocam),
+                                  label: Text(isRecording ? 'Stop' : 'Record'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.teal,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller: _existGenderController,
-                              decoration: InputDecoration(
-                                  labelText: 'Gender',
-                                  border: OutlineInputBorder()),
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller:
-                                  _existDobController, // Ensure this controller is declared
-                              decoration: InputDecoration(
-                                labelText: 'Date Of Birth',
-                                border: OutlineInputBorder(),
-                                suffixIcon: Icon(Icons.calendar_today),
-                              ),
-                              readOnly: true, // Prevent manual text input
-                              onTap: () async {
-                                DateTime? pickedDate = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime(2100),
-                                );
-
-                                if (pickedDate != null) {
-                                  // Check if a date was selected
-                                  String formattedDate =
-                                      DateFormat('yyyy-MM-dd')
-                                          .format(pickedDate); // Format date
-                                  _existDobController.text =
-                                      formattedDate; // Update the controller
-                                }
-                              },
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller: _existPhoneController,
-                              decoration: InputDecoration(
-                                  labelText: 'Phone No.',
-                                  border: OutlineInputBorder()),
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller: _existAddressController,
-                              decoration: InputDecoration(
-                                  labelText: 'Address',
-                                  border: OutlineInputBorder()),
-                            ),
-                            SizedBox(height: 8),
-                            TextFormField(
-                              controller:
-                                  _existAppointmentDateController, // Ensure this controller is declared
-                              decoration: InputDecoration(
-                                labelText: 'Apointment Date',
-                                border: OutlineInputBorder(),
-                                suffixIcon: Icon(Icons.calendar_today),
-                              ),
-                              readOnly: true, // Prevent manual text input
-                              onTap: () async {
-                                DateTime? pickedDate = await showDatePicker(
-                                  context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime(2100),
-                                );
-
-                                if (pickedDate != null) {
-                                  // Check if a date was selected
-                                  String formattedDate =
-                                      DateFormat('yyyy-MM-dd')
-                                          .format(pickedDate); // Format date
-                                  _existAppointmentDateController.text =
-                                      formattedDate; // Update the controller
-                                }
-                              },
-                            ),
-                            SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () {
-                                updateExistingPatient(context);
-                              },
-                              child: Text('Update'),
-                              style: ElevatedButton.styleFrom(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 40, vertical: 15),
-                                backgroundColor: Colors.teal,
-                                foregroundColor: Colors.white,
-                              ),
-                            )
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              flex: 2,
-              child: Column(
-                children: [
-                  Text(
-                    'Camera',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  SizedBox(height: 30),
-                  Expanded(
-                    child: RepaintBoundary(
-                      key: _videoKey,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: _renderer.textureId != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: RTCVideoView(_renderer),
-                              )
-                            : Center(child: CircularProgressIndicator()),
                       ),
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _captureImage,
-                        icon: Icon(Icons.camera_alt),
-                        label: Text('Capture'),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
-                            foregroundColor: Colors.white),
-                      ),
-                      SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: _toggleRecording,
-                        icon: Icon(isRecording ? Icons.stop : Icons.videocam),
-                        label: Text(isRecording ? 'Stop' : 'Record'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    height: 205, // Adjust height as needed
-                    padding: EdgeInsets.only(top: 16),
+                    ])),
+                // Flex 3 positioned below both Flex 1 and Flex 2
+                SizedBox(height: 30),
+                Container(
+                  height: 300, // Adjust to make scroll effect more visible
+                  child: Container(
+                    height: 200, // Adjust height as needed
+                    padding: EdgeInsets.only(top: 16, left: 30, right: 10),
                     child: GridView.builder(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 1,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent:
+                            200, // Maximum width of each grid item
+                        childAspectRatio:
+                            1, // Adjust height-to-width ratio as needed
+                        crossAxisSpacing:
+                            30, // Spacing between items horizontally
+                        mainAxisSpacing: 20, // Spacing between items vertically
                       ),
                       itemCount: capturedItems.length,
                       itemBuilder: (context, index) {
                         final item = capturedItems[index];
-                        return Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: item['type'] == 'image'
-                              ? Image.memory(
-                                  item['data'],
-                                  fit: BoxFit.cover,
-                                )
-                              // : item['type'] == 'video'
-                              //     ? VideoPlayerWidget(
-                              //         videoPath: item[
-                              //             'data']) // Display video using video_player
-                              : item['type'] == 'loading'
-                                  ? Center(child: CircularProgressIndicator())
-                                  : Center(child: Icon(Icons.videocam)),
-                        );
+                        return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item['datetime'] ??
+                                    '', // Display title above the card
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.black,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: 5),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  // border: Border.all(color: Colors.black),
+                                  borderRadius: BorderRadius.circular(30),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                          alpha: 0.1), // Light shadow for depth
+                                      blurRadius: 5, // Blur effect
+                                      offset: Offset(2, 4), // Shadow direction
+                                    ),
+                                  ],
+                                ),
+                                child: item['type'] == 'image'
+                                    ? Image.memory(
+                                        item['data'],
+                                        fit: BoxFit.cover,
+                                      )
+                                    // : item['type'] == 'video'
+                                    //     ? VideoPlayerWidget(
+                                    //         videoPath: item[
+                                    //             'data']) // Display video using video_player
+                                    : item['type'] == 'loading'
+                                        ? Center(
+                                            child: CircularProgressIndicator())
+                                        : Center(child: Icon(Icons.videocam)),
+                              )
+                            ]);
                       },
                     ),
-                  )
-                ],
-              ),
+                  ),
+                ),
+
+                SizedBox(height: 10),
+                Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                        padding: EdgeInsets.only(right: 40),
+                        child: ElevatedButton(
+                          onPressed: () {},
+                          child: Text('Generate Pdf'),
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                          ),
+                        ) // Space between GridView and Button
+                        ))
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        ));
   }
 }
 

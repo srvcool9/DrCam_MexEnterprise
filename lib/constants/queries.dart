@@ -46,20 +46,36 @@ class Queries {
      ''';
 
   static const String GET_GRID_DATA = '''
-  select distinct ph.patientId ,p.patientName,t.appointmentDate as lastVisited
-  from patient_history ph 
-  inner join patients p on p.patientId = ph.patientId 
-  left join(
-   select *
-   from patient_history ph 
-   order by id DESC 
-   limit 1
-  ) t on t.patientId =p.patientId 
+    SELECT 
+    p.patientId,
+    p.patientName,
+    MAX(t.appointmentDate) AS lastVisited
+    FROM patients p
+    LEFT JOIN patient_history t 
+    ON t.patientId = p.patientId
+    GROUP BY p.patientId, p.patientName
   ''';
 
-  static const String GET_PATIENT_APOINTMENT_DATES = ''' 
+  static const String GET_PATIENT_APOINTMENT_DATES = '''
    SELECT DISTINCT strftime('%d/%m/%Y', ph.appointmentDate) AS appointment_date
    FROM patient_history ph
    WHERE ph.patientId = ?;
+  ''';
+
+  static const String PATIENT_IMAGES = '''
+      CREATE TABLE IF NOT EXISTS patient_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patientId INTEGER NOT NULL,
+        historyId INTEGER NOT NULL,
+        imageBase64 TEXT NOT NULL,
+        createdOn TEXT NOT NULL
+      );
+  ''';
+
+  static const String GET_PATIENT_IMAGES_BY_PATIENT_ID = '''
+   select distinct pi.imageBase64 
+   from patient_images
+   pi where pi.patientId =?
+
   ''';
 }

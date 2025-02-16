@@ -13,19 +13,17 @@ class Patientrepository {
   Future<int> updatePatient(PatientMaster patient) async {
     return await dbConfig.updatePatient(patient);
   }
-Future<PatientMaster?> getPatientDetailByFeildName(
-  String tableName,
-  String columnName,
-  dynamic columnValue,
-) async {
-  return await dbConfig.queryByColumn(
-    tableName,
-    columnName,
-    columnValue,
-    PatientMaster.map, 
-  );
-}
 
-
-
+  Future<PatientMaster?> getPatientDetailByFeildName(
+    String tableName,
+    String columnName,
+    dynamic columnValue,
+  ) async {
+    return await dbConfig.queryByColumn(
+      tableName,
+      columnName,
+      columnValue,
+      PatientMaster.map,
+    );
+  }
 }

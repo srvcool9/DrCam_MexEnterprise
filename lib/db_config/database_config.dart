@@ -109,12 +109,27 @@ class DatabaseConfig<T extends DatabaseModel> {
     await database.execute(Queries.DOCTOR_PROFILE);
     await database.execute(Queries.PATIENTS);
     await database.execute(Queries.PATIENT_HISTORY);
+    await database.execute(Queries.PATIENT_IMAGES);
   }
 
   Future<int> insert(T model) async {
     final db = await database;
     return await db.insert(model.getTableName(), model.toMap());
   }
+ 
+   Future<List<int>> insertMany(List<T> models) async {
+  final db = await database;
+  List<int> ids = [];
+
+  await db.transaction((txn) async {
+    for (T model in models) {
+      int id = await txn.insert(model.getTableName(), model.toMap());
+      ids.add(id);
+    }
+  });
+
+  return ids; // Return the list of inserted row IDs
+}
 
   // Update a model item
   Future<int> update(T model) async {
