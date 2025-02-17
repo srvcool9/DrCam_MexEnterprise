@@ -6,6 +6,7 @@ import 'package:doctorcam/pages/dashboard.dart';
 import 'package:doctorcam/pages/doctor-profile-screen.dart';
 import 'package:doctorcam/pages/login.dart';
 import 'package:doctorcam/pages/landing-screen.dart';
+import 'package:doctorcam/pages/pdfexamplescreen.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -34,7 +35,8 @@ class MyApp extends StatelessWidget {
       '/': (context) => const Login(),
       '/home':(context)=> const DoctorProfileScreen(),
       '/dashboard': (context) => const Dashboard(),
-      '/camera':(context) => Camera()
+      '/camera':(context) => Camera(),
+      '/pdf':(context)=> PDFExampleScreen()
       
     },
     );

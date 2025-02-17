@@ -39,10 +39,10 @@ class Patientimagesrepository {
     );
   }
 
-  Future<List<String>> getImagesByPatientId(int param) async {
+  Future<List<PatientImages>> getImagesByPatientId(int param) async {
   return await dbConfig.customQuery(
     Queries.GET_PATIENT_IMAGES_BY_PATIENT_ID,
-    (map) => map['imageBase64'].toString(),
+    PatientImages.map,
     param,
   );
 }

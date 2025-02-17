@@ -28,7 +28,14 @@ class DashboardState extends State<Dashboard> {
     doctorprofilerepository = Doctorprofilerepository();
     getAgencyName();// Added device ID generation
   }
-  int _selectedIndex = 0;
+  int selectedIndex = 0;
+  int patientId=0;
+
+    void updateId(int patientId) {
+    setState(() {
+      patientId = patientId;
+    });
+  }
 
   final List<Widget> _pages = [
     LandingScreen(),
@@ -112,17 +119,17 @@ class DashboardState extends State<Dashboard> {
           ],
         ),
       ),
-      body: _pages[_selectedIndex],
+      body: _pages[selectedIndex],
     );
   }
 
   Widget _buildNavItem(String label, int index) {
-    final bool isSelected = _selectedIndex == index;
+    final bool isSelected = selectedIndex == index;
 
     return InkWell(
       onTap: () {
         setState(() {
-          _selectedIndex = index;
+          selectedIndex = index;
         });
       },
       child: Padding(

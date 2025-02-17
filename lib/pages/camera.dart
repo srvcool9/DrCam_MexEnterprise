@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:doctorcam/models/patient_history.dart';
 import 'package:doctorcam/models/patient_images.dart';
 import 'package:doctorcam/models/patient_master.dart';
+import 'package:doctorcam/pages/dashboard.dart';
 import 'package:doctorcam/repository/PatientHistoryRepository.dart';
 import 'package:doctorcam/repository/PatientImagesRepository.dart';
 import 'package:doctorcam/repository/PatientRepository.dart';
@@ -82,6 +83,19 @@ class _CameraPageState extends State<Camera>
       _initializeCamera();
     });
   }
+   
+   void generatePdf(BuildContext context){
+    int? patientId=int.tryParse(_existPatientIdController.text);
+     final dashboardState = context.findAncestorStateOfType<DashboardState>();
+      if (dashboardState != null) {
+      dashboardState.setState(() {
+        dashboardState.selectedIndex = 5; // Index of PDFExampleScreen
+        dashboardState.patientId=patientId!;
+      });
+    }
+    // Navigator.pushReplacementNamed(context, '/pdf',arguments: patientId,);
+
+   }
 
   void resetNewPatientForm() {
     _patientIdController.clear();
@@ -285,20 +299,20 @@ class _CameraPageState extends State<Camera>
   }
 
   void loadPatientImages(int patientId) async {
-    List<String> images =
+    List<PatientImages> images =
         await patientimagesrepository.getImagesByPatientId(patientId);
-
+     
     if (images.isNotEmpty) {
       List<Map<String, dynamic>> newItems = images.map((img) {
         return {
           'type': 'image',
-          'data': base64Decode(img),
-          'datetime': DateFormat('dd-MM-yyyy').format(DateTime.now())
+          'data': base64Decode(img.imageBase64),
+          'datetime': img.createdOn
         };
       }).toList();
 
       setState(() {
-        imagesBase64List.addAll(images);
+        imagesBase64List= images.map((i) =>i.imageBase64).toList();
         capturedItems = [...newItems];
       });
     }
@@ -427,7 +441,7 @@ class _CameraPageState extends State<Camera>
           capturedItems.insert(0, {
             'type': 'image',
             'data': byteData.buffer.asUint8List(),
-            'datetime': DateTime.now(),
+            'datetime': DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
           });
         });
       }
@@ -866,7 +880,7 @@ class _CameraPageState extends State<Camera>
                         childAspectRatio:
                             1, // Adjust height-to-width ratio as needed
                         crossAxisSpacing:
-                            30, // Spacing between items horizontally
+                            10, // Spacing between items horizontally
                         mainAxisSpacing: 20, // Spacing between items vertically
                       ),
                       itemCount: capturedItems.length,
@@ -876,16 +890,15 @@ class _CameraPageState extends State<Camera>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                item['datetime'] ??
-                                    '', // Display title above the card
+                               "Date: ${item['datetime'] ?? ''}",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 15,
                                   color: Colors.black,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
-                              SizedBox(height: 5),
+                              SizedBox(height: 10),
                               Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white.withValues(alpha: 0.7),
@@ -920,13 +933,15 @@ class _CameraPageState extends State<Camera>
                   ),
                 ),
 
-                SizedBox(height: 10),
+                SizedBox(height: 1),
                 Align(
                     alignment: Alignment.centerRight,
                     child: Padding(
-                        padding: EdgeInsets.only(right: 40),
+                        padding: EdgeInsets.only(right: 50,bottom: 80),
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            generatePdf(context);
+                          },
                           child: Text('Generate Pdf'),
                           style: ElevatedButton.styleFrom(
                             padding: EdgeInsets.symmetric(

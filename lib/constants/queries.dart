@@ -73,7 +73,7 @@ class Queries {
   ''';
 
   static const String GET_PATIENT_IMAGES_BY_PATIENT_ID = '''
-   select distinct pi.imageBase64 
+   select * 
    from patient_images
    pi where pi.patientId =?
 
