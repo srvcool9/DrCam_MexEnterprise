@@ -20,7 +20,7 @@ class Dashboard extends StatefulWidget {
 class DashboardState extends State<Dashboard> {
 
   late Doctorprofilerepository doctorprofilerepository;
-  String _agencyName = 'Mex Enterprise';
+  String agencyName = 'Mex Enterprise';
 
    @override
   void initState() {
@@ -42,11 +42,10 @@ class DashboardState extends State<Dashboard> {
     Camera(),
     PatientHistoryScreen(),
     DoctorProfileScreen(),
-    TestScreen(),
-    PDFExampleScreen(),
-    ExitPage(onExit: () {
+     ExitPage(onExit: () {
       exit(0);
     }),
+    PDFExampleScreen(),
   ];
 
    Future<void> getAgencyName() async {
@@ -54,7 +53,7 @@ class DashboardState extends State<Dashboard> {
         await doctorprofilerepository.getFirstDoctorProfile();
 
     setState(() {
-      _agencyName = doctor?.agencyName ?? "Mex Enterprise";
+      agencyName = doctor?.agencyName ?? "Mex Enterprise";
     });
   }
 
@@ -73,7 +72,7 @@ class DashboardState extends State<Dashboard> {
             Row(
               children: [
                 Text(
-                   _agencyName.isNotEmpty ? _agencyName : "Mex Enterprise",
+                   agencyName.isNotEmpty ? agencyName : "Mex Enterprise",
                   style: TextStyle(
                     color: Colors.teal,
                     fontSize: 28,
@@ -96,7 +95,7 @@ class DashboardState extends State<Dashboard> {
                 _buildNavItem('Camera', 1),
                 _buildNavItem('Patient History', 2),
                 _buildNavItem('Settings', 3),
-                _buildNavItem('Test',4)
+                _buildNavItem('Exit', 4)
               ],
             ),
             // Logout button

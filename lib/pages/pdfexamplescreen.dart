@@ -20,11 +20,14 @@ class PDFExampleScreen extends StatefulWidget {
 
 class _PDFExampleScreenState extends State<PDFExampleScreen> {
   int? patientId;
+  String? agencyName;
   List<Map<String, dynamic>> capturedItems = [];
   final TextEditingController _imageCountController = TextEditingController();
   late Patientrepository patientrepository;
   late Patientimagesrepository patientImagesRepository;
+  List<String> imagesBase64List = [];
   Set<int> selectedIndices = {};
+    List<PatientImages> images =[];
 
   @override
   void initState() {
@@ -34,6 +37,7 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
     final dashboardState = context.findAncestorStateOfType<DashboardState>();
     setState(() {
       patientId = dashboardState?.patientId!;
+      agencyName = dashboardState?.agencyName!;
     });
     loadPatientImages(patientId!);
   }
@@ -45,11 +49,101 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
       } else {
         selectedIndices.add(index);
       }
+      imagesBase64List= selectedIndices.map((i)=> images[i].imageBase64).toList();
+      _imageCountController.text= imagesBase64List.length.toString();
+    
+    });
+  }
+
+  void showErrorNotification(BuildContext context, String message) {
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 50,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red, width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(2, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error, color: Colors.red),
+                const SizedBox(width: 8),
+                Text(
+                  message,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay?.insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 3), () {
+      overlayEntry.remove();
+    });
+  }
+
+  void showSuccessNotification(BuildContext context, String message) {
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 50,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF005A96),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromARGB(66, 0, 0, 0),
+                  blurRadius: 4,
+                  offset: Offset(2, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  message,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay?.insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 3), () {
+      overlayEntry.remove();
     });
   }
 
   void loadPatientImages(int patientId) async {
-    List<PatientImages> images =
+   images =
         await patientImagesRepository.getImagesByPatientId(patientId);
 
     if (images.isNotEmpty) {
@@ -62,26 +156,32 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
       }).toList();
 
       setState(() {
+        imagesBase64List= selectedIndices.map((i)=> images[i].imageBase64).toList();
+       // imagesBase64List = images.map((i) => i.imageBase64).toList();
         capturedItems = [...newItems];
+        _imageCountController.text= imagesBase64List.length.toString();
       });
     }
   }
 
   Future<void> _createAndSavePdf() async {
+    List<Uint8List> images = [];
     // Create a PDF document
     final pdf = pw.Document();
 
     // Load an image from assets
     Uint8List? imageBytes;
     try {
-      final ByteData imageData = await rootBundle.load('assets/logo.png');
-      imageBytes = imageData.buffer.asUint8List();
+      if (imagesBase64List.isNotEmpty) {
+        imagesBase64List.forEach((i) {images.add(base64Decode(i));});
+      }
     } catch (e) {
       debugPrint('Error loading image: $e');
-      imageBytes = null; // Fallback to null if image loading fails
+     // Fallback to null if image loading fails
     }
 
     // Add content to the PDF
+     for (Uint8List imageBytes in images) {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -90,9 +190,11 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'PDF with Images and Content',
-                style:
-                    pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+                agencyName!,
+                style: pw.TextStyle(
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.teal),
               ),
               pw.SizedBox(height: 20),
               pw.Text('This is an example of adding text to a PDF.'),
@@ -112,13 +214,13 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
         },
       ),
     );
-
+     }
     // Prompt the user to select a save location
     String? savePath;
     try {
       savePath = await FilePicker.platform.saveFile(
         dialogTitle: 'Save PDF to',
-        fileName: 'example.pdf',
+        fileName: 'images.pdf',
         type: FileType.custom,
         allowedExtensions: ['pdf'],
       );
@@ -129,13 +231,9 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
     if (savePath != null) {
       final file = File(savePath);
       await file.writeAsBytes(await pdf.save());
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF saved to $savePath')),
-      );
+      showSuccessNotification(context, "Pdf downloaded successfully");
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Save operation canceled.')),
-      );
+      showErrorNotification(context, "Something went wrong");
     }
   }
 
@@ -246,27 +344,17 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
 
                             // Always show a checkmark, but make it visible when selected
                             Positioned.fill(
-                              
                               left: 240,
-                              bottom:240,
+                              bottom: 240,
                               child: Icon(
                                 Icons.check_circle,
                                 color: isSelected
                                     ? Colors.white
-                                    : const Color.fromARGB(255, 105, 102, 102).withOpacity(0.5),
+                                    : const Color.fromARGB(255, 105, 102, 102)
+                                        .withOpacity(0.5),
                                 size: 20, // Large checkmark
                               ),
                             ),
-
-                            // Semi-transparent green overlay when selected
-                            // if (isSelected)
-                            //   Container(
-                            //     decoration: BoxDecoration(
-                            //       color: const Color.fromARGB(255, 58, 59, 58).withOpacity(
-                            //           0.4), // Green overlay when selected
-                                 
-                            //     ),
-                            //   ),
                           ],
                         ),
                       );
@@ -275,12 +363,23 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
                 ),
               ),
               SizedBox(height: 20),
-              Center(
-                child: ElevatedButton(
-                  onPressed: _createAndSavePdf,
-                  child: const Text('Generate and Save PDF'),
-                ),
-              ),
+              Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                      padding: EdgeInsets.only(right: 50, bottom: 80),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _createAndSavePdf();
+                        },
+                        child: Text('Download Pdf'),
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                        ),
+                      ) // Space between GridView and Button
+                      )),
             ],
           ),
         ),

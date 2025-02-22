@@ -1,4 +1,5 @@
 import 'package:doctorcam/dto/PatientHistoryDTO.dart';
+import 'package:doctorcam/pages/dashboard.dart';
 import 'package:doctorcam/repository/PatientHistoryRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +25,16 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen> {
     });
   }
 
+void generatePdf(BuildContext context,int patientId){
+
+     final dashboardState = context.findAncestorStateOfType<DashboardState>();
+      if (dashboardState != null) {
+      dashboardState.setState(() {
+        dashboardState.selectedIndex = 5; // Index of PDFExampleScreen
+        dashboardState.patientId=patientId!;
+      });
+    }
+   }
 
 void _viewHistory(BuildContext context, int patientId) async {
   List<String> dateStrings = await patienthistoryrepository.getPreviousApointment(patientId);
@@ -151,7 +162,7 @@ void _viewHistory(BuildContext context, int patientId) async {
         IconButton(
           icon: const Icon(Icons.picture_as_pdf, color: Colors.red),
           onPressed: () {
-            // Implement PDF generation functionality
+            generatePdf(context, patient.patientId);
           },
         ),
       ],

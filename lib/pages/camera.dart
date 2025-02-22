@@ -93,8 +93,6 @@ class _CameraPageState extends State<Camera>
         dashboardState.patientId=patientId!;
       });
     }
-    // Navigator.pushReplacementNamed(context, '/pdf',arguments: patientId,);
-
    }
 
   void resetNewPatientForm() {
