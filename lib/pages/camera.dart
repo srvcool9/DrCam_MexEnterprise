@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -19,8 +20,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io'; // Required for file handling
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
-
+import 'package:process_run/process_run.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 
 // Add flutter_ffmpeg
 
@@ -42,6 +44,7 @@ class _CameraPageState extends State<Camera>
   String? videoFilePath; // Path to save the video4
   MediaRecorder? _mediaRecorder; // Define MediaRecorder instance
   Uint8List? _recordedData;
+  String? _outputPath;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -69,6 +72,12 @@ class _CameraPageState extends State<Camera>
   final TextEditingController _existAppointmentDateController =
       TextEditingController();
 
+  String serverUrl = "http://127.0.0.1:5000";
+  Timer? frameTimer;
+  RTCPeerConnection? _peerConnection;
+  String? outputMp4Path; // Path for final converted MP4 file
+  Process? _ffmpegProcess;
+
   @override
   void initState() {
     super.initState();
@@ -83,17 +92,17 @@ class _CameraPageState extends State<Camera>
       _initializeCamera();
     });
   }
-   
-   void generatePdf(BuildContext context){
-    int? patientId=int.tryParse(_existPatientIdController.text);
-     final dashboardState = context.findAncestorStateOfType<DashboardState>();
-      if (dashboardState != null) {
+
+  void generatePdf(BuildContext context) {
+    int? patientId = int.tryParse(_existPatientIdController.text);
+    final dashboardState = context.findAncestorStateOfType<DashboardState>();
+    if (dashboardState != null) {
       dashboardState.setState(() {
         dashboardState.selectedIndex = 5; // Index of PDFExampleScreen
-        dashboardState.patientId=patientId!;
+        dashboardState.patientId = patientId!;
       });
     }
-   }
+  }
 
   void resetNewPatientForm() {
     _patientIdController.clear();
@@ -130,44 +139,6 @@ class _CameraPageState extends State<Camera>
       }
     } catch (e) {
       print("Error listing cameras: $e");
-    }
-  }
-
-  Future<void> _initializeCamera() async {
-    await _renderer.initialize();
-    try {
-      List<MediaDeviceInfo> devices =
-          await navigator.mediaDevices.enumerateDevices();
-      String? selectedDeviceId;
-
-      for (var device in devices) {
-        if (device.kind == 'videoinput') {
-          print("Camera Found: ${device.label} (ID: ${device.deviceId})");
-          selectedDeviceId ??= device.deviceId; // Select the first camera
-        }
-      }
-
-      if (selectedDeviceId != null) {
-        final mediaStream = await navigator.mediaDevices.getUserMedia({
-          'video': {
-            'deviceId': selectedDeviceId,
-            'width': {'ideal': 3500}, // Set desired width
-            'height': {'ideal': 1000}, // Set desired height
-            'frameRate': 200,
-          },
-          'audio': true,
-        });
-
-        _renderer.srcObject = mediaStream;
-        setState(() {
-          _mediaStream = mediaStream;
-        });
-        print("Camera initialized with device ID: $selectedDeviceId");
-      } else {
-        print("No camera found.");
-      }
-    } catch (e) {
-      print('Error initializing camera: $e');
     }
   }
 
@@ -299,7 +270,7 @@ class _CameraPageState extends State<Camera>
   void loadPatientImages(int patientId) async {
     List<PatientImages> images =
         await patientimagesrepository.getImagesByPatientId(patientId);
-     
+
     if (images.isNotEmpty) {
       List<Map<String, dynamic>> newItems = images.map((img) {
         return {
@@ -310,7 +281,7 @@ class _CameraPageState extends State<Camera>
       }).toList();
 
       setState(() {
-        imagesBase64List= images.map((i) =>i.imageBase64).toList();
+        imagesBase64List = images.map((i) => i.imageBase64).toList();
         capturedItems = [...newItems];
       });
     }
@@ -450,46 +421,153 @@ class _CameraPageState extends State<Camera>
 
   void toggleRecording() {
     if (isRecording) {
-      _stopRecording();
+      stopRecording();
     } else {
-      _startRecording();
+      startRecording();
     }
   }
 
-  // Simulate video recording by saving the stream using flutter_ffmpeg
+  Future<void> _initializeCamera() async {
+    await _renderer.initialize();
+    try {
+      List<MediaDeviceInfo> devices =
+          await navigator.mediaDevices.enumerateDevices();
+      String? selectedDeviceId;
 
-  Future<void> _startRecording() async {
-    if (_mediaStream != null) {
-      final appDocumentsDir = await getApplicationDocumentsDirectory();
-      final videoDir = Directory(join(appDocumentsDir.path, 'videos'));
-      if (!await videoDir.exists()) {
-        await videoDir.create(recursive: true);
-      }
-      videoFilePath = join(
-          videoDir.path, 'video_${DateTime.now().millisecondsSinceEpoch}.mp4');
-
-      File videoFile = File(videoFilePath!);
-      if (videoFile.existsSync()) {
-        print("Warning: File already exists, overwriting...");
-      }
-
-      // FFmpeg command to record video from screen capture
-      String command =
-          '-y -f gdigrab -framerate 30 -i desktop -c:v libx264 -pix_fmt yuv420p $videoFilePath';
-
-      await FFmpegKit.execute(command).then((session) async {
-        final returnCode = await session.getReturnCode();
-        if (ReturnCode.isSuccess(returnCode)) {
-          print("Recording saved to $videoFilePath");
-        } else {
-          print("Recording failed!");
+      for (var device in devices) {
+        if (device.kind == 'videoinput') {
+          print("Camera Found: ${device.label} (ID: ${device.deviceId})");
+          selectedDeviceId ??= device.deviceId; // Select the first camera
         }
-      });
+      }
+
+      if (selectedDeviceId != null) {
+        final mediaStream = await navigator.mediaDevices.getUserMedia({
+          'video': {
+            'deviceId': selectedDeviceId,
+            'width': {'ideal': 3500}, // Set desired width
+            'height': {'ideal': 1000}, // Set desired height
+            'frameRate': 200,
+          },
+          'audio': true,
+        });
+
+        _renderer.srcObject = mediaStream;
+        setState(() {
+          _mediaStream = mediaStream;
+        });
+        print("Camera initialized with device ID: $selectedDeviceId");
+      } else {
+        print("No camera found.");
+      }
+    } catch (e) {
+      print('Error initializing camera: $e');
     }
   }
 
-  Future<void> _stopRecording() async {
-    await FFmpegKit.cancel(); // Stops the FFmpeg process
+  Future<void> stopCamera() async {
+    if (_mediaStream != null) {
+      _mediaStream!.getTracks().forEach((track) => track.stop());
+      _renderer.srcObject = null;
+      setState(() {
+        _mediaStream = null;
+      });
+      print("Camera preview stopped.");
+    }
+  }
+
+  Future<void> startRecording() async {
+    try {
+      if (_mediaStream != null) {
+        print("Stopping camera preview before recording...");
+        stopCamera();
+      }
+
+      final dir = await getApplicationDocumentsDirectory();
+      videoFilePath = '${dir.path}\\recorded_video.mkv';
+      outputMp4Path = '${dir.path}\\final_video.mp4';
+
+      String videoDeviceName = "HP TrueVision HD Camera";
+
+      List<String> command = [
+        '-f',
+        'dshow',
+        '-rtbufsize',
+        '100M',
+        '-pixel_format',
+        'yuyv422',
+        '-i',
+        'video=$videoDeviceName',
+        '-c:v',
+        'libx264',
+        '-preset',
+        'ultrafast',
+        videoFilePath!,
+      ];
+
+      _ffmpegProcess = await Process.start('ffmpeg', command, runInShell: true);
+
+      setState(() {
+        isRecording = true;
+      });
+
+      _ffmpegProcess!.stdout.transform(const Utf8Decoder()).listen((data) {
+        print("FFmpeg Output: $data");
+      });
+
+      _ffmpegProcess!.stderr.transform(const Utf8Decoder()).listen((data) {
+        print("FFmpeg Error: $data");
+      });
+    } catch (e, stackTrace) {
+      print("Exception while starting recording: $e");
+      print("StackTrace: $stackTrace");
+    }
+  }
+
+  Future<void> stopRecording() async {
+    if (_ffmpegProcess == null) return;
+
+    print("Stopping recording...");
+
+    // Send 'q' to FFmpeg for a graceful shutdown
+    _ffmpegProcess!.stdin.writeln('q');
+    await _ffmpegProcess!.exitCode; // Wait for FFmpeg to fully exit
+
+    setState(() {
+      isRecording = false;
+    });
+
+    print("Recording stopped. File saved at: $videoFilePath");
+  }
+
+  Future<void> convertToMp4(String inputPath) async {
+    final outputDir = await getApplicationDocumentsDirectory();
+    outputMp4Path = '${outputDir.path}/final_video.mp4';
+
+    List<String> command = [
+      '-i',
+      inputPath,
+      '-c:v',
+      'libx264',
+      '-preset',
+      'fast',
+      '-crf',
+      '23',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+      outputMp4Path!,
+    ];
+
+    final session = await FFmpegKit.executeWithArguments(command);
+    final returnCode = await session.getReturnCode();
+
+    if (ReturnCode.isSuccess(returnCode)) {
+      print('Video converted successfully: $outputMp4Path');
+    } else {
+      print('FFmpeg failed with return code: $returnCode');
+    }
   }
 
   @override
@@ -848,13 +926,20 @@ class _CameraPageState extends State<Camera>
                                 ),
                                 SizedBox(width: 16),
                                 ElevatedButton.icon(
-                                  onPressed: toggleRecording,
+                                  onPressed: () {
+                                    if (isRecording) {
+                                      stopRecording();
+                                    } else {
+                                      startRecording();
+                                    }
+                                  },
                                   icon: Icon(isRecording
                                       ? Icons.stop
                                       : Icons.videocam),
                                   label: Text(isRecording ? 'Stop' : 'Record'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.teal,
+                                    backgroundColor:
+                                        isRecording ? Colors.red : Colors.teal,
                                     foregroundColor: Colors.white,
                                   ),
                                 ),
@@ -888,7 +973,7 @@ class _CameraPageState extends State<Camera>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                               "Date: ${item['datetime'] ?? ''}",
+                                "Date: ${item['datetime'] ?? ''}",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
@@ -935,7 +1020,7 @@ class _CameraPageState extends State<Camera>
                 Align(
                     alignment: Alignment.centerRight,
                     child: Padding(
-                        padding: EdgeInsets.only(right: 50,bottom: 80),
+                        padding: EdgeInsets.only(right: 50, bottom: 80),
                         child: ElevatedButton(
                           onPressed: () {
                             generatePdf(context);

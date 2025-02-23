@@ -5,6 +5,9 @@ project(doctorcam LANGUAGES CXX)
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "doctorcam")
+set(FFMPEG_PLUGIN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg-plugin/bin")
+set(ENV{PATH} "$ENV{PATH};${FFMPEG_PLUGIN_PATH}")
+
 
 
 

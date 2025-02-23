@@ -7,6 +7,7 @@ import 'package:doctorcam/pages/doctor-profile-screen.dart';
 import 'package:doctorcam/pages/login.dart';
 import 'package:doctorcam/pages/landing-screen.dart';
 import 'package:doctorcam/pages/pdfexamplescreen.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit_config.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -14,6 +15,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   var dbConfig= DatabaseConfig();
   await dbConfig.initDB();
+   FFmpegKitConfig.setEnvironmentVariable(
+      "FFMPEG_BIN", "windows/ffmpeg-plugin/bin/ffmpeg.exe");
+  FFmpegKitConfig.setEnvironmentVariable(
+      "FFPROBE_BIN", "windows/ffmpeg-plugin/bin/ffprobe.exe");
   runApp(const MyApp());
   }, (error, stackTrace) {
     File('error.log').writeAsStringSync('$error\n$stackTrace');
