@@ -475,8 +475,7 @@ class _CameraPageState extends State<Camera>
       print("Camera preview stopped.");
     }
   }
-
-  Future<void> startRecording() async {
+ Future<void> startRecording() async {
     try {
       if (_mediaStream != null) {
         print("Stopping camera preview before recording...");
@@ -488,6 +487,18 @@ class _CameraPageState extends State<Camera>
       outputMp4Path = '${dir.path}\\final_video.mp4';
 
       String videoDeviceName = "HP TrueVision HD Camera";
+
+
+    //To record desktop  
+    //  List<String> command = [
+    //   '-f', 'gdigrab', // Capture screen
+    //   '-framerate', '30',
+    //   '-i', 'desktop',
+    //   '-c:v', 'libx264',
+    //   '-preset', 'ultrafast',
+    //   '-tune', 'zerolatency',
+    //   videoFilePath!,
+    // ];
 
       List<String> command = [
         '-f',
