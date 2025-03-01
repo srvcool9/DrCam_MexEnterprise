@@ -72,9 +72,26 @@ class Queries {
       );
   ''';
 
+  static const String PATIENT_VIDEOS = '''
+      CREATE TABLE IF NOT EXISTS patient_videos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patientId INTEGER NOT NULL,
+        historyId INTEGER NOT NULL,
+        videoPath TEXT NOT NULL,
+        createdOn TEXT NOT NULL
+      );
+  ''';
+
   static const String GET_PATIENT_IMAGES_BY_PATIENT_ID = '''
    select * 
    from patient_images
+   pi where pi.patientId =?
+
+  ''';
+
+  static const String GET_PATIENT_VIDEOS_BY_PATIENT_ID = '''
+   select * 
+   from patient_videos
    pi where pi.patientId =?
 
   ''';

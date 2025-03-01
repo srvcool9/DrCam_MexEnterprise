@@ -5,45 +5,29 @@ import 'package:video_player_win/video_player_win.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/return_code.dart';
 
+class VideoPlayerScreen extends StatefulWidget {
+  final String videoPath;
 
-class VideoPlayerWidget extends StatefulWidget {
-  const VideoPlayerWidget({Key? key}) : super(key: key); // Removed dynamic path
+  const VideoPlayerScreen({Key? key, required this.videoPath})
+      : super(key: key);
 
   @override
-  _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
+  _VideoPlayerScreenState createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   VideoPlayerController? _controller;
-
-  // 🔹 Set a fixed video path here
-  static const String _fixedVideoPath = "C:/Users/HP/Documents/final_video.mp4";
-   // Change this pathr
 
   @override
   void initState() {
-    
     super.initState();
-    _initializeVideo();
-
-    
-  }
-
-
-  void _initializeVideo() async {
-    if (File(_fixedVideoPath).existsSync()) {
-      _controller = VideoPlayerController.file(File(_fixedVideoPath))
-        ..initialize().then((_) {
-          if (mounted) {
-            setState(() {});
-            _controller!.play(); // Auto-play
-          }
-        }).catchError((error) {
-          debugPrint("Error initializing video: $error");
-        });
-    } else {
-      debugPrint("Video file not found at: $_fixedVideoPath");
-    }
+    _controller = VideoPlayerController.file(File(widget.videoPath))
+      ..initialize().then((_) {
+        setState(() {});
+        _controller!.play(); // Auto-play
+      }).catchError((error) {
+        debugPrint("Error loading video: $error");
+      });
   }
 
   @override
@@ -55,21 +39,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Fixed Path Video Player")),
+      appBar: AppBar(title: Text("Video Playback")),
       body: Center(
         child: _controller != null && _controller!.value.isInitialized
             ? AspectRatio(
                 aspectRatio: _controller!.value.aspectRatio,
                 child: VideoPlayer(_controller!),
               )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 10),
-                  Text("Loading video..."),
-                ],
-              ),
+            : CircularProgressIndicator(),
       ),
     );
   }

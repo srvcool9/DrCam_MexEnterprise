@@ -110,6 +110,7 @@ class DatabaseConfig<T extends DatabaseModel> {
     await database.execute(Queries.PATIENTS);
     await database.execute(Queries.PATIENT_HISTORY);
     await database.execute(Queries.PATIENT_IMAGES);
+    await database.execute(Queries.PATIENT_VIDEOS);
   }
 
   Future<int> insert(T model) async {

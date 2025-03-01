@@ -5,10 +5,13 @@ import 'dart:ui' as ui;
 import 'package:doctorcam/models/patient_history.dart';
 import 'package:doctorcam/models/patient_images.dart';
 import 'package:doctorcam/models/patient_master.dart';
+import 'package:doctorcam/models/patient_video.dart';
 import 'package:doctorcam/pages/dashboard.dart';
+import 'package:doctorcam/pages/test-screen.dart';
 import 'package:doctorcam/repository/PatientHistoryRepository.dart';
 import 'package:doctorcam/repository/PatientImagesRepository.dart';
 import 'package:doctorcam/repository/PatientRepository.dart';
+import 'package:doctorcam/repository/PatientVideoRepository.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +21,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io'; // Required for file handling
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
@@ -40,7 +44,8 @@ class _CameraPageState extends State<Camera>
   final GlobalKey _videoKey = GlobalKey();
   late VideoPlayerController _videoPlayerController;
   List<Map<String, dynamic>> capturedItems = [];
-  List<String> imagesBase64List = []; // FlutterFFmpeg instance
+  List<String> imagesBase64List = [];
+  List<String> videoPaths = [];
   String? videoFilePath; // Path to save the video4
   MediaRecorder? _mediaRecorder; // Define MediaRecorder instance
   Uint8List? _recordedData;
@@ -59,6 +64,7 @@ class _CameraPageState extends State<Camera>
   late Patientrepository patientrepository;
   late Patienthistoryrepository patientHistoryRepository;
   late Patientimagesrepository patientimagesrepository;
+  late PatientVideoRepository patientVideoRepository;
 
   final _updateFormKey = GlobalKey<FormState>();
   final TextEditingController _existPatientIdController =
@@ -85,6 +91,7 @@ class _CameraPageState extends State<Camera>
     patientrepository = Patientrepository();
     patientHistoryRepository = Patienthistoryrepository();
     patientimagesrepository = Patientimagesrepository();
+    patientVideoRepository = PatientVideoRepository();
 
     _tabController = TabController(length: 2, vsync: this);
 
@@ -267,6 +274,7 @@ class _CameraPageState extends State<Camera>
     if (patientExists != null) {
       setState(() async {
         loadPatientImages(patientExists.patientId!);
+        loadPatientVideos(patientExists.patientId!);
         _existPatientIdController.text = patientExists.patientId.toString();
         _existPatientNameController.text = patientExists.patientName;
         _existGenderController.text = patientExists.gender;
@@ -277,6 +285,7 @@ class _CameraPageState extends State<Camera>
     } else if (patientPersist != null) {
       setState(() {
         loadPatientImages(patientPersist.patientId!);
+        loadPatientVideos(patientPersist.patientId!);
         _existPatientIdController.text = patientPersist.patientId.toString();
         _existPatientNameController.text = patientPersist.patientName;
         _existGenderController.text = patientPersist.gender;
@@ -300,11 +309,31 @@ class _CameraPageState extends State<Camera>
           'data': base64Decode(img.imageBase64),
           'datetime': img.createdOn
         };
+      }). toList();
+
+      setState(() {
+        //imagesBase64List = images.map((i) => i.imageBase64).toList();
+        capturedItems = [...capturedItems,...newItems];
+      });
+    }
+  }
+
+  Future<void> loadPatientVideos(int patientId) async {
+    List<PatientVideos> videos =
+        await patientVideoRepository.getVideosByPatientId(patientId);
+
+    if (videos.isNotEmpty) {
+      List<Map<String, dynamic>> newItems = videos.map((video) {
+        return {
+          'type': 'video',
+          'data': video.videoPath,
+          'datetime': video.createdOn
+        };
       }).toList();
 
       setState(() {
-        imagesBase64List = images.map((i) => i.imageBase64).toList();
-        capturedItems = [...newItems];
+        //videoPaths = videos.map((v) => v.videoPath).toList();
+          capturedItems = [...capturedItems,...newItems];
       });
     }
   }
@@ -334,6 +363,8 @@ class _CameraPageState extends State<Camera>
             await patientHistoryRepository.insertPatientHistory(newApointment);
         patientimagesrepository
             .insertImageList(mapPatientImages(patientId, historyId));
+        patientVideoRepository
+            .insertVideoDataList(mapPatientVideos(patientId, historyId));
       }
       showSuccessNotification(context, "Patient updated successfully.");
     } catch (e, stackTrace) {
@@ -395,6 +426,8 @@ class _CameraPageState extends State<Camera>
         await patientHistoryRepository.insertPatientHistory(patientHistory);
     patientimagesrepository
         .insertImageList(mapPatientImages(patientId, savedHistoryId));
+    patientVideoRepository
+        .insertVideoDataList(mapPatientVideos(patientId, savedHistoryId));
     return savedHistoryId;
   }
 
@@ -415,37 +448,60 @@ class _CameraPageState extends State<Camera>
     }
   }
 
-  Future<void> _captureImage() async {
-    try {
-      RenderRepaintBoundary boundary =
-          _videoKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage();
-      ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData != null) {
-        String base64String = base64Encode(byteData.buffer.asUint8List());
-        setState(() {
-          imagesBase64List.add(base64String);
-        });
+  List<PatientVideos> mapPatientVideos(int patientId, int historyId) {
+    List<PatientVideos> videoList = [];
+    if (videoPaths.isNotEmpty) {
+      videoPaths.forEach((i) {
+        videoList.add(PatientVideos(
+            id: null,
+            patientId: patientId,
+            historyId: historyId,
+            videoPath: i,
+            createdOn: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())));
+      });
+      return videoList;
+    } else {
+      return [];
+    }
+  }
 
-        setState(() {
-          capturedItems.insert(0, {
-            'type': 'image',
-            'data': byteData.buffer.asUint8List(),
-            'datetime': DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
+  Future<void> _captureImage(BuildContext context) async {
+    try {
+      if (_patientNameController.text == "" &&
+          _existPatientNameController.text == "") {
+        showErrorNotification(
+            context, "Please fill patient details to capture image");
+      } else {
+        RenderRepaintBoundary boundary = _videoKey.currentContext!
+            .findRenderObject() as RenderRepaintBoundary;
+        ui.Image image = await boundary.toImage();
+        ByteData? byteData =
+            await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData != null) {
+          String base64String = base64Encode(byteData.buffer.asUint8List());
+          setState(() {
+            imagesBase64List.add(base64String);
           });
-        });
+
+          setState(() {
+            capturedItems.insert(0, {
+              'type': 'image',
+              'data': byteData.buffer.asUint8List(),
+              'datetime': DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
+            });
+          });
+        }
       }
     } catch (e) {
       print('Error capturing image: $e');
     }
   }
 
-  void toggleRecording() {
+  void toggleRecording(BuildContext context) {
     if (isRecording) {
       stopRecording();
     } else {
-      startRecording();
+      startRecording(context);
     }
   }
 
@@ -498,89 +554,123 @@ class _CameraPageState extends State<Camera>
     }
   }
 
-  Future<void> startRecording() async {
+  Future<void> startRecording(BuildContext context) async {
     try {
-      if (_mediaStream != null) {
-        print("Stopping camera preview before recording...");
-        stopCamera();
+      if (_patientNameController.text == "" &&
+          _existPatientNameController.text == "") {
+        showErrorNotification(
+            context, "Please fill patient details to record videos");
+      } else {
+        String patientName;
+        final dir = await getApplicationDocumentsDirectory();
+        String randomString = Uuid().v4();
+
+// Ensure patientName is assigned correctly
+        if (_patientNameController.text.trim().isNotEmpty) {
+          patientName = _patientNameController.text.trim();
+        } else if (_existPatientNameController.text.trim().isNotEmpty) {
+          patientName = _existPatientNameController.text.trim();
+        } else {
+          patientName = randomString;
+        }
+
+        String patientDir = '${dir.path}\\DrCam_Videos\\$patientName';
+        Directory patientDirectory = Directory(patientDir);
+
+        if (!patientDirectory.existsSync()) {
+          patientDirectory.createSync(recursive: true);
+        }
+
+        if (_mediaStream != null) {
+          print("Stopping camera preview before recording...");
+          stopCamera();
+        }
+
+        this.setState(() {
+          outputMp4Path = '${patientDirectory.path}\\$randomString.mp4';
+        });
+
+        String ffmpegPath = await getFFmpegPath();
+
+        // String videoDeviceName = "HP TrueVision HD Camera";
+        String? videoDeviceName = cameraName;
+
+        //To record desktop
+        //  List<String> command = [
+        //   '-f', 'gdigrab', // Capture screen
+        //   '-framerate', '30',
+        //   '-i', 'desktop',
+        //   '-c:v', 'libx264',
+        //   '-preset', 'ultrafast',
+        //   '-tune', 'zerolatency',
+        //   videoFilePath!,
+        // ];
+
+        //Mkv format
+        // List<String> command = [
+        //   '-f',
+        //   'dshow',
+        //   '-rtbufsize',
+        //   '100M',
+        //   '-pixel_format',
+        //   'yuyv422',
+        //   '-i',
+        //   'video=$videoDeviceName',
+        //   '-c:v',
+        //   'libx264',
+        //   '-preset',
+        //   'ultrafast',
+        //   videoFilePath!,
+        // ];
+
+        //MP4 format
+        List<String> command = [
+          '-f',
+          'dshow',
+          '-i',
+          'video=$videoDeviceName',
+          '-c:v',
+          'libx264',
+          '-preset',
+          'fast',
+          '-crf',
+          '23',
+          '-pix_fmt',
+          'yuv420p',
+          '-movflags',
+          '+faststart',
+          '-y',
+          outputMp4Path!,
+        ];
+
+        _ffmpegProcess =
+            await Process.start(ffmpegPath, command, runInShell: true);
+
+        setState(() {
+          isRecording = true;
+        });
+
+        _ffmpegProcess!.stdout.transform(const Utf8Decoder()).listen((data) {
+          print("FFmpeg Output: $data");
+        });
+
+        _ffmpegProcess!.stderr.transform(const Utf8Decoder()).listen((data) {
+          print("FFmpeg Error: $data");
+        });
       }
-
-      final dir = await getApplicationDocumentsDirectory();
-      videoFilePath = '${dir.path}\\recorded_video.mkv';
-      outputMp4Path = '${dir.path}\\final_video.mp4';
-
-      String ffmpegPath = await getFFmpegPath();
-
-      // String videoDeviceName = "HP TrueVision HD Camera";
-      String? videoDeviceName = cameraName;
-
-      //To record desktop
-      //  List<String> command = [
-      //   '-f', 'gdigrab', // Capture screen
-      //   '-framerate', '30',
-      //   '-i', 'desktop',
-      //   '-c:v', 'libx264',
-      //   '-preset', 'ultrafast',
-      //   '-tune', 'zerolatency',
-      //   videoFilePath!,
-      // ];
-
-      //Mkv format
-      // List<String> command = [
-      //   '-f',
-      //   'dshow',
-      //   '-rtbufsize',
-      //   '100M',
-      //   '-pixel_format',
-      //   'yuyv422',
-      //   '-i',
-      //   'video=$videoDeviceName',
-      //   '-c:v',
-      //   'libx264',
-      //   '-preset',
-      //   'ultrafast',
-      //   videoFilePath!,
-      // ];
-
-
-     //MP4 format
-      List<String> command = [
-        '-f',
-        'dshow',
-        '-i',
-        'video=$videoDeviceName',
-        '-c:v',
-        'libx264',
-        '-preset',
-        'fast',
-        '-crf',
-        '23',
-        '-pix_fmt',
-        'yuv420p',
-        '-movflags',
-        '+faststart',
-        '-y',
-        outputMp4Path!,
-      ];
-
-      _ffmpegProcess =
-          await Process.start(ffmpegPath, command, runInShell: true);
-
-      setState(() {
-        isRecording = true;
-      });
-
-      _ffmpegProcess!.stdout.transform(const Utf8Decoder()).listen((data) {
-        print("FFmpeg Output: $data");
-      });
-
-      _ffmpegProcess!.stderr.transform(const Utf8Decoder()).listen((data) {
-        print("FFmpeg Error: $data");
-      });
     } catch (e, stackTrace) {
       print("Exception while starting recording: $e");
       print("StackTrace: $stackTrace");
     }
+  }
+
+  void _playVideo(BuildContext context, String videoPath) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VideoPlayerScreen(videoPath: videoPath),
+      ),
+    );
   }
 
   Future<void> stopRecording() async {
@@ -596,10 +686,18 @@ class _CameraPageState extends State<Camera>
       isRecording = false;
     });
 
-    print("Recording stopped. File saved at: $videoFilePath");
-  }
+    setState(() {
+      capturedItems.add({
+        'type': 'video',
+        'data': outputMp4Path, // Store video file path
+        'datetime': DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
+      });
+      videoPaths.add(outputMp4Path!);
+    });
 
-  
+    _initializeCamera();
+    print("Recording stopped. File saved at: $outputMp4Path");
+  }
 
   @override
   void dispose() {
@@ -948,7 +1046,7 @@ class _CameraPageState extends State<Camera>
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 ElevatedButton.icon(
-                                  onPressed: _captureImage,
+                                  onPressed: () => _captureImage(context),
                                   icon: Icon(Icons.camera_alt),
                                   label: Text('Capture'),
                                   style: ElevatedButton.styleFrom(
@@ -961,7 +1059,7 @@ class _CameraPageState extends State<Camera>
                                     if (isRecording) {
                                       stopRecording();
                                     } else {
-                                      startRecording();
+                                      startRecording(context);
                                     }
                                   },
                                   icon: Icon(isRecording
@@ -983,67 +1081,93 @@ class _CameraPageState extends State<Camera>
                 // Flex 3 positioned below both Flex 1 and Flex 2
                 SizedBox(height: 30),
                 Container(
-                  height: 300, // Adjust to make scroll effect more visible
-                  child: Container(
-                    height: 200, // Adjust height as needed
-                    padding: EdgeInsets.only(top: 16, left: 30, right: 10),
-                    child: GridView.builder(
-                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent:
-                            200, // Maximum width of each grid item
-                        childAspectRatio:
-                            1, // Adjust height-to-width ratio as needed
-                        crossAxisSpacing:
-                            10, // Spacing between items horizontally
-                        mainAxisSpacing: 20, // Spacing between items vertically
-                      ),
-                      itemCount: capturedItems.length,
-                      itemBuilder: (context, index) {
-                        final item = capturedItems[index];
-                        return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                "Date: ${item['datetime'] ?? ''}",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: Colors.black,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              SizedBox(height: 10),
-                              Container(
+                  height: 300, // Adjust for scroll effect
+                  padding: EdgeInsets.only(top: 16, left: 30, right: 10),
+                  child: GridView.builder(
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 200, // Grid item width
+                      childAspectRatio: 1, // Aspect ratio
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 20,
+                    ),
+                    itemCount: capturedItems.length,
+                    itemBuilder: (context, index) {
+                      final item = capturedItems[index];
+
+                      return SizedBox(
+                        // Prevent overflow
+                        height: 180, // Consistent height
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Display Date
+                            Text(
+                              "Date: ${item['datetime'] ?? ''}",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15),
+                              textAlign: TextAlign.center,
+                            ),
+                            SizedBox(height: 5), // Reduce spacing
+                            Expanded(
+                              // Allow flexible space for content
+                              child: Container(
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  // border: Border.all(color: Colors.black),
-                                  borderRadius: BorderRadius.circular(30),
+                                  color: Colors.white.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(15),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(
-                                          alpha: 0.1), // Light shadow for depth
-                                      blurRadius: 5, // Blur effect
-                                      offset: Offset(2, 4), // Shadow direction
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 5,
+                                      offset: Offset(2, 4),
                                     ),
                                   ],
                                 ),
                                 child: item['type'] == 'image'
-                                    ? Image.memory(
-                                        item['data'],
-                                        fit: BoxFit.cover,
+                                    ? ClipRRect(
+                                        // Rounded corners for images
+                                        borderRadius: BorderRadius.circular(15),
+                                        child: Image.memory(
+                                          item[
+                                              'data'], // Image data from memory
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                        ),
                                       )
-                                    // : item['type'] == 'video'
-                                    //     ? VideoPlayerWidget(
-                                    //         videoPath: item[
-                                    //             'data']) // Display video using video_player
-                                    : item['type'] == 'loading'
-                                        ? Center(
-                                            child: CircularProgressIndicator())
-                                        : Center(child: Icon(Icons.videocam)),
-                              )
-                            ]);
-                      },
-                    ),
+                                    : item['type'] == 'video'
+                                        ? GestureDetector(
+                                            onTap: () {
+                                              _playVideo(context, item['data']);
+                                            },
+                                            child: Stack(
+                                              children: [
+                                                // 📌 Top-left video icon
+                                                Positioned(
+                                                  top: 8,
+                                                  left: 8,
+                                                  child: Icon(Icons.videocam,
+                                                      size: 24,
+                                                      color: Colors.black54),
+                                                ),
+                                                // 📌 Center play button
+                                                Center(
+                                                  child: Icon(
+                                                      Icons.play_circle_fill,
+                                                      size: 40,
+                                                      color: Colors.black),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        : Center(
+                                            child: Icon(Icons
+                                                .videocam)), // Default if type is unknown
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
 

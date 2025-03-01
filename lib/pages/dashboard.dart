@@ -45,7 +45,8 @@ class DashboardState extends State<Dashboard> {
      ExitPage(onExit: () {
       exit(0);
     }),
-    VideoPlayerWidget()
+    PDFExampleScreen()
+    
   ];
 
    Future<void> getAgencyName() async {
@@ -96,8 +97,7 @@ class DashboardState extends State<Dashboard> {
                 _buildNavItem('Patient History', 2),
                 _buildNavItem('Settings', 3),
                 _buildNavItem('Exit', 4),
-                _buildNavItem('Test', 5)
-
+              
               ],
             ),
             // Logout button
