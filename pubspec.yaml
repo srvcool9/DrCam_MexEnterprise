@@ -44,6 +44,7 @@ dependencies:
   pdf: 
   file_picker: ^8.1.4
   video_player:
+  video_player_win: ^2.0.0
   flutter_ffmpeg:
   ffmpeg_kit_flutter: 
   permission_handler: ^11.0.1
@@ -80,6 +81,7 @@ flutter:
     - assets/background.gif
     - assets/doctor.png
     - assets/Animation.gif
+    - assets/ffmpeg-plugin/bin/ffmpeg.exe
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

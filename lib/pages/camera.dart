@@ -13,6 +13,7 @@ import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart';
@@ -22,7 +23,6 @@ import 'dart:io'; // Required for file handling
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:process_run/process_run.dart';
 import 'package:permission_handler/permission_handler.dart';
-
 
 // Add flutter_ffmpeg
 
@@ -77,6 +77,7 @@ class _CameraPageState extends State<Camera>
   RTCPeerConnection? _peerConnection;
   String? outputMp4Path; // Path for final converted MP4 file
   Process? _ffmpegProcess;
+  String? cameraName;
 
   @override
   void initState() {
@@ -89,8 +90,25 @@ class _CameraPageState extends State<Camera>
 
     _requestPermissions().then((_) {
       _listCameras();
+      getFFmpegPath();
       _initializeCamera();
     });
+  }
+
+  Future<String> getFFmpegPath() async {
+    final appDir = await getApplicationSupportDirectory();
+    final ffmpegPath = '${appDir.path}\\ffmpeg.exe';
+
+    final byteData =
+        await rootBundle.load('assets/ffmpeg-plugin/bin/ffmpeg.exe');
+    final buffer = byteData.buffer.asUint8List();
+    final file = File(ffmpegPath);
+
+    if (!file.existsSync()) {
+      await file.writeAsBytes(buffer, flush: true);
+    }
+
+    return ffmpegPath;
   }
 
   void generatePdf(BuildContext context) {
@@ -134,7 +152,11 @@ class _CameraPageState extends State<Camera>
           await navigator.mediaDevices.enumerateDevices();
       for (var device in devices) {
         if (device.kind == 'videoinput') {
+          setState(() {
+            cameraName = device.label;
+          });
           print("Camera Found: ${device.label} (ID: ${device.deviceId})");
+          print("camera name:  $cameraName");
         }
       }
     } catch (e) {
@@ -475,7 +497,8 @@ class _CameraPageState extends State<Camera>
       print("Camera preview stopped.");
     }
   }
- Future<void> startRecording() async {
+
+  Future<void> startRecording() async {
     try {
       if (_mediaStream != null) {
         print("Stopping camera preview before recording...");
@@ -486,37 +509,62 @@ class _CameraPageState extends State<Camera>
       videoFilePath = '${dir.path}\\recorded_video.mkv';
       outputMp4Path = '${dir.path}\\final_video.mp4';
 
-      String videoDeviceName = "HP TrueVision HD Camera";
+      String ffmpegPath = await getFFmpegPath();
+
+      // String videoDeviceName = "HP TrueVision HD Camera";
+      String? videoDeviceName = cameraName;
+
+      //To record desktop
+      //  List<String> command = [
+      //   '-f', 'gdigrab', // Capture screen
+      //   '-framerate', '30',
+      //   '-i', 'desktop',
+      //   '-c:v', 'libx264',
+      //   '-preset', 'ultrafast',
+      //   '-tune', 'zerolatency',
+      //   videoFilePath!,
+      // ];
+
+      //Mkv format
+      // List<String> command = [
+      //   '-f',
+      //   'dshow',
+      //   '-rtbufsize',
+      //   '100M',
+      //   '-pixel_format',
+      //   'yuyv422',
+      //   '-i',
+      //   'video=$videoDeviceName',
+      //   '-c:v',
+      //   'libx264',
+      //   '-preset',
+      //   'ultrafast',
+      //   videoFilePath!,
+      // ];
 
 
-    //To record desktop  
-    //  List<String> command = [
-    //   '-f', 'gdigrab', // Capture screen
-    //   '-framerate', '30',
-    //   '-i', 'desktop',
-    //   '-c:v', 'libx264',
-    //   '-preset', 'ultrafast',
-    //   '-tune', 'zerolatency',
-    //   videoFilePath!,
-    // ];
-
+     //MP4 format
       List<String> command = [
         '-f',
         'dshow',
-        '-rtbufsize',
-        '100M',
-        '-pixel_format',
-        'yuyv422',
         '-i',
         'video=$videoDeviceName',
         '-c:v',
         'libx264',
         '-preset',
-        'ultrafast',
-        videoFilePath!,
+        'fast',
+        '-crf',
+        '23',
+        '-pix_fmt',
+        'yuv420p',
+        '-movflags',
+        '+faststart',
+        '-y',
+        outputMp4Path!,
       ];
 
-      _ffmpegProcess = await Process.start('ffmpeg', command, runInShell: true);
+      _ffmpegProcess =
+          await Process.start(ffmpegPath, command, runInShell: true);
 
       setState(() {
         isRecording = true;
@@ -551,35 +599,7 @@ class _CameraPageState extends State<Camera>
     print("Recording stopped. File saved at: $videoFilePath");
   }
 
-  Future<void> convertToMp4(String inputPath) async {
-    final outputDir = await getApplicationDocumentsDirectory();
-    outputMp4Path = '${outputDir.path}/final_video.mp4';
-
-    List<String> command = [
-      '-i',
-      inputPath,
-      '-c:v',
-      'libx264',
-      '-preset',
-      'fast',
-      '-crf',
-      '23',
-      '-c:a',
-      'aac',
-      '-b:a',
-      '128k',
-      outputMp4Path!,
-    ];
-
-    final session = await FFmpegKit.executeWithArguments(command);
-    final returnCode = await session.getReturnCode();
-
-    if (ReturnCode.isSuccess(returnCode)) {
-      print('Video converted successfully: $outputMp4Path');
-    } else {
-      print('FFmpeg failed with return code: $returnCode');
-    }
-  }
+  
 
   @override
   void dispose() {
