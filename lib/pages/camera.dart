@@ -745,72 +745,193 @@ class _CameraPageState extends State<Camera>
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          centerTitle: false,
-          elevation: 1.0,
-          foregroundColor: Colors.black,
+ @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      backgroundColor: Colors.white,
+      centerTitle: false,
+      elevation: 1.0,
+      foregroundColor: Colors.black,
+    ),
+    body: SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height, // Ensures scrolling
         ),
-        body: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight:
-                  MediaQuery.of(context).size.height, // Ensures scrolling
-            ),
-            child: Column(
-              children: [
-                Container(
-                    height: 650,
-                    child: Row(children: [
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment
-                              .start, // Aligns form fields to left
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            TabBar(
+        child: Column(
+          children: [
+            Container(
+              height: 650,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TabBar(
+                          controller: _tabController,
+                          labelColor: Colors.black,
+                          unselectedLabelColor: Colors.grey,
+                          indicatorColor: Colors.blue,
+                          tabs: [
+                            Tab(text: 'New Patient'),
+                            Tab(text: 'Existing Patient'),
+                          ],
+                        ),
+                        SizedBox(height: 5),
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(left: 20, top: 0, bottom: 100),
+                            child: TabBarView(
                               controller: _tabController,
-                              labelColor: Colors.black,
-                              unselectedLabelColor: Colors.grey,
-                              indicatorColor: Colors.blue,
-                              tabs: [
-                                Tab(text: 'New Patient'),
-                                Tab(text: 'Existing Patient'),
-                              ],
-                            ),
-                            SizedBox(height: 5),
-                            Expanded(
-                                child: Padding(
-                              padding: EdgeInsets.only(
-                                  left: 20, top: 0, bottom: 100),
-                              child: TabBarView(
-                                controller: _tabController,
-                                children: [
-                                  SingleChildScrollView(
-                                    child: Form(
-                                      key: _formKey,
+                              children: [
+                                SingleChildScrollView(
+                                  child: Form(
+                                    key: _formKey,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _patientNameController,
+                                          decoration: InputDecoration(
+                                              labelText: 'Patient Name',
+                                              border: OutlineInputBorder()),
+                                          validator: (value) => value!.isEmpty
+                                              ? 'Please enter patient name'
+                                              : null,
+                                        ),
+                                        SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _genderController,
+                                          decoration: InputDecoration(
+                                              labelText: 'Gender',
+                                              border: OutlineInputBorder()),
+                                          validator: (value) => value!.isEmpty
+                                              ? 'Please enter gender'
+                                              : null,
+                                        ),
+                                        SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _dobController,
+                                          decoration: InputDecoration(
+                                            labelText: 'Date Of Birth',
+                                            border: OutlineInputBorder(),
+                                            suffixIcon: Icon(Icons.calendar_today),
+                                          ),
+                                          validator: (value) => value!.isEmpty
+                                              ? 'Please select dob'
+                                              : null,
+                                          readOnly: true,
+                                          onTap: () async {
+                                            DateTime? pickedDate = await showDatePicker(
+                                              context: context,
+                                              initialDate: DateTime.now(),
+                                              firstDate: DateTime(1950),
+                                              lastDate: DateTime(2100),
+                                            );
+
+                                            if (pickedDate != null) {
+                                              String formattedDate = DateFormat('yyyy-MM-dd')
+                                                  .format(pickedDate);
+                                              _dobController.text = formattedDate;
+                                            }
+                                          },
+                                        ),
+                                        SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _phoneController,
+                                          decoration: InputDecoration(
+                                              labelText: 'Phone No.',
+                                              border: OutlineInputBorder()),
+                                        ),
+                                        SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _addressController,
+                                          decoration: InputDecoration(
+                                              labelText: 'Address',
+                                              border: OutlineInputBorder()),
+                                          validator: (value) => value!.isEmpty
+                                              ? 'Please select address'
+                                              : null,
+                                        ),
+                                        SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _appointmentDateController,
+                                          decoration: InputDecoration(
+                                            labelText: 'Appointment Date',
+                                            border: OutlineInputBorder(),
+                                            suffixIcon: Icon(Icons.calendar_today),
+                                          ),
+                                          validator: (value) => value!.isEmpty
+                                              ? 'Please select appointment date'
+                                              : null,
+                                          readOnly: true,
+                                          onTap: () async {
+                                            DateTime? pickedDate = await showDatePicker(
+                                              context: context,
+                                              initialDate: DateTime.now(),
+                                              firstDate: DateTime(1950),
+                                              lastDate: DateTime(2100),
+                                            );
+
+                                            if (pickedDate != null) {
+                                              String formattedDate = DateFormat('yyyy-MM-dd')
+                                                  .format(pickedDate);
+                                              _appointmentDateController.text = formattedDate;
+                                            }
+                                          },
+                                        ),
+                                        SizedBox(height: 16),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            if (_formKey.currentState!.validate()) {
+                                              savePatient(context);
+                                            }
+                                          },
+                                          child: Text('Save'),
+                                          style: ElevatedButton.styleFrom(
+                                            padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                                            backgroundColor: Colors.teal,
+                                            foregroundColor: const ui.Color.fromARGB(255, 6, 4, 4),
+                                          ),
+                                        )
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                SingleChildScrollView(
+                                  child: Form(
+                                    key: _updateFormKey,
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: 0),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment
-                                            .start, // Aligns form fields to left
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          // TextFormField(
-                                          //   controller: _patientIdController,
-                                          //   decoration: InputDecoration(
-                                          //       labelText: 'Patient Id',
-                                          //       border: OutlineInputBorder()),
-                                          //   validator: (value) => value!.isEmpty
-                                          //       ? 'Please enter patient ID'
-                                          //       : null,
-                                          // ),
+                                          SizedBox(height: 20),
+                                          TextFormField(
+                                            controller: _existPatientIdController,
+                                            decoration: InputDecoration(
+                                              labelText: 'Search By PatientId or Phone',
+                                              border: OutlineInputBorder(),
+                                              suffixIcon: IconButton(
+                                                icon: Icon(Icons.search),
+                                                onPressed: () {
+                                                  _loadPatientDate(context);
+                                                },
+                                              ),
+                                            ),
+                                            validator: (value) => value!.isEmpty
+                                                ? 'Please enter patient ID'
+                                                : null,
+                                          ),
                                           SizedBox(height: 8),
                                           TextFormField(
-                                            controller: _patientNameController,
+                                            controller: _existPatientNameController,
                                             decoration: InputDecoration(
                                                 labelText: 'Patient Name',
                                                 border: OutlineInputBorder()),
@@ -820,29 +941,28 @@ class _CameraPageState extends State<Camera>
                                           ),
                                           SizedBox(height: 8),
                                           TextFormField(
-                                            controller: _genderController,
+                                            controller: _existGenderController,
                                             decoration: InputDecoration(
                                                 labelText: 'Gender',
                                                 border: OutlineInputBorder()),
-                                            validator: (value) => value!.isEmpty
-                                                ? 'Please enter gender'
-                                                : null,
+                                            validator: (value) =>
+                                                value!.isEmpty
+                                                    ? 'Please enter gender'
+                                                    : null,
                                           ),
                                           SizedBox(height: 8),
                                           TextFormField(
-                                            controller:
-                                                _dobController, // Ensure this controller is declared
+                                            controller: _existDobController,
                                             decoration: InputDecoration(
                                               labelText: 'Date Of Birth',
                                               border: OutlineInputBorder(),
-                                              suffixIcon:
-                                                  Icon(Icons.calendar_today),
+                                              suffixIcon: Icon(Icons.calendar_today),
                                             ),
-                                            validator: (value) => value!.isEmpty
-                                                ? 'Please select dob'
-                                                : null,
-                                            readOnly:
-                                                true, // Prevent manual text input
+                                            validator: (value) =>
+                                                value!.isEmpty
+                                                    ? 'Please enter dob'
+                                                    : null,
+                                            readOnly: true,
                                             onTap: () async {
                                               DateTime? pickedDate =
                                                   await showDatePicker(
@@ -853,48 +973,48 @@ class _CameraPageState extends State<Camera>
                                               );
 
                                               if (pickedDate != null) {
-                                                // Check if a date was selected
-                                                String formattedDate = DateFormat(
-                                                        'yyyy-MM-dd')
-                                                    .format(
-                                                        pickedDate); // Format date
-                                                _dobController.text =
-                                                    formattedDate; // Update the controller
+                                                String formattedDate =
+                                                    DateFormat('yyyy-MM-dd')
+                                                        .format(pickedDate);
+                                                _existDobController.text =
+                                                    formattedDate;
                                               }
                                             },
                                           ),
                                           SizedBox(height: 8),
                                           TextFormField(
-                                            controller: _phoneController,
+                                            controller: _existPhoneController,
                                             decoration: InputDecoration(
                                                 labelText: 'Phone No.',
                                                 border: OutlineInputBorder()),
+                                            validator: (value) =>
+                                                value!.isEmpty
+                                                    ? 'Please enter phone no'
+                                                    : null,
                                           ),
                                           SizedBox(height: 8),
                                           TextFormField(
-                                            controller: _addressController,
+                                            controller: _existAddressController,
                                             decoration: InputDecoration(
                                                 labelText: 'Address',
                                                 border: OutlineInputBorder()),
-                                            validator: (value) => value!.isEmpty
-                                                ? 'Please select address'
-                                                : null,
+                                            validator: (value) =>
+                                                value!.isEmpty
+                                                    ? 'Please enter address'
+                                                    : null,
                                           ),
                                           SizedBox(height: 8),
                                           TextFormField(
-                                            controller:
-                                                _appointmentDateController, // Ensure this controller is declared
+                                            controller: _existAppointmentDateController,
                                             decoration: InputDecoration(
-                                              labelText: 'Apointment Date',
+                                              labelText: 'Appointment Date',
                                               border: OutlineInputBorder(),
-                                              suffixIcon:
-                                                  Icon(Icons.calendar_today),
+                                              suffixIcon: Icon(Icons.calendar_today),
                                             ),
                                             validator: (value) => value!.isEmpty
-                                                ? 'Please select appointment date'
+                                                ? 'Please enter appointment date'
                                                 : null,
-                                            readOnly:
-                                                true, // Prevent manual text input
+                                            readOnly: true,
                                             onTap: () async {
                                               DateTime? pickedDate =
                                                   await showDatePicker(
@@ -905,516 +1025,323 @@ class _CameraPageState extends State<Camera>
                                               );
 
                                               if (pickedDate != null) {
-                                                // Check if a date was selected
-                                                String formattedDate = DateFormat(
-                                                        'yyyy-MM-dd')
-                                                    .format(
-                                                        pickedDate); // Format date
-                                                _appointmentDateController
-                                                        .text =
-                                                    formattedDate; // Update the controller
+                                                String formattedDate =
+                                                    DateFormat('yyyy-MM-dd')
+                                                        .format(pickedDate);
+                                                _existAppointmentDateController.text =
+                                                    formattedDate;
                                               }
                                             },
                                           ),
                                           SizedBox(height: 16),
                                           ElevatedButton(
                                             onPressed: () {
-                                              if (_formKey.currentState!
-                                                  .validate()) {
-                                                savePatient(context);
+                                              if (_updateFormKey.currentState!.validate()) {
+                                                updateExistingPatient(context);
                                               }
                                             },
-                                            child: Text('Save'),
+                                            child: Text('Update'),
                                             style: ElevatedButton.styleFrom(
-                                              padding: EdgeInsets.symmetric(
-                                                  horizontal: 40, vertical: 15),
+                                              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                                               backgroundColor: Colors.teal,
-                                              foregroundColor:
-                                                  const ui.Color.fromARGB(
-                                                      255, 6, 4, 4),
+                                              foregroundColor: Colors.white,
                                             ),
                                           )
                                         ],
                                       ),
                                     ),
                                   ),
-                                  SingleChildScrollView(
-                                    
-                            
-                                   child:  Form(
-                                        key: _updateFormKey,
-                                      
-                                      child: Padding(
-                                        padding: EdgeInsets.only(top: 0),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 20),
+                  Expanded(
+                    flex: 2,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left Side: Camera Preview & Controls
+                        Expanded(
+                          flex: 3,
+                          child: Column(
+                            children: [
+                              Text(
+                                'Camera',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18),
+                              ),
+                              SizedBox(height: 30),
+                              Padding(
+                                padding: EdgeInsets.only(bottom: 10),
+                                child: Stack(
+                                  alignment: Alignment.bottomCenter,
+                                  children: [
+                                    // Camera Preview
+                                    RepaintBoundary(
+                                      key: _videoKey,
+                                      child: Container(
+                                        width: 760,
+                                        height: 430,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.black),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: _renderer.textureId != null
+                                            ? ClipRRect(
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: RTCVideoView(_renderer),
+                                              )
+                                            : Center(child: CircularProgressIndicator()),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 10),
+
+                              // Capture & Record Buttons
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () => _captureImage(context),
+                                    icon: Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                    ),
+                                    label: Text('Capture'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.teal,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      if (isRecording) {
+                                        stopRecording();
+                                      } else {
+                                        startRecording(context);
+                                      }
+                                    },
+                                    icon: Icon(
+                                        color: Colors.white,
+                                        isRecording
+                                            ? Icons.stop
+                                            : Icons.videocam),
+                                    label: Text(
+                                        isRecording ? 'Stop' : 'Record'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isRecording
+                                          ? Colors.red
+                                          : Colors.teal,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ), // End of Buttons Row
+                            ],
+                          ),
+                        ), // End of Camera Column
+
+                        SizedBox(width: 10, height: 50),
+                        // Spacing between video and mini box
+                        Padding(
+                          padding: EdgeInsets.only(top: 55, right: 5),
+                          // Right Side: Mini Box with Sliders
+                          child: Container(
+                            width: 200,
+                            height: 430, // Mini box width
+                            padding: EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black26, blurRadius: 5),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(height: 10),
+
+                                // Brightness Slider
+                                Text("Brightness"),
+                                Slider(
+                                  value: _brightness,
+                                  min: 0.0,
+                                  max: 2.0,
+                                  divisions: 10,
+                                  activeColor: Colors.teal,
+                                  label: _brightness.toStringAsFixed(1),
+                                  onChanged: (double value) =>
+                                      _updateCameraSettings("brightness", value),
+                                ),
+
+                                // Contrast Slider
+                                Text("Contrast"),
+                                Slider(
+                                  value: _contrast,
+                                  min: 0.5,
+                                  max: 2.0,
+                                  divisions: 10,
+                                  label: _contrast.toStringAsFixed(1),
+                                  activeColor: Colors.teal,
+                                  onChanged: (double value) =>
+                                      _updateCameraSettings("contrast", value),
+                                ),
+
+                                // Saturation Slider
+                                Text("Saturation"),
+                                Slider(
+                                  value: _saturation,
+                                  min: 0.5,
+                                  max: 2.0,
+                                  divisions: 10,
+                                  label: _saturation.toStringAsFixed(1),
+                                  activeColor: Colors.teal,
+                                  onChanged: (double value) =>
+                                      _updateCameraSettings("saturation", value),
+                                ),
+                                Text("Zoom"),
+                                Slider(
+                                  value: _zoomLevel,
+                                  min: 1.0,
+                                  max: 5.0, // Adjust max zoom as per camera capability
+                                  divisions: 10,
+                                  activeColor: Colors.teal,
+                                  label: _zoomLevel.toStringAsFixed(1),
+                                  onChanged: (double value) =>
+                                      _updateZoom(value),
+                                )
+                              ],
+                            ),
+                          ), // End of Mini Box
+                        )
+                      ],
+                    ),
+                  ), // End of Expanded Row
+                ],
+              ),
+            ),
+            // Flex 3 positioned below both Flex 1 and Flex 2
+            SizedBox(height: 30),
+            Container(
+              height: 300, // Adjust for scroll effect
+              padding: EdgeInsets.only(top: 16, left: 30, right: 10),
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 200, // Grid item width
+                  childAspectRatio: 1, // Aspect ratio
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 20,
+                ),
+                itemCount: capturedItems.length,
+                itemBuilder: (context, index) {
+                  final item = capturedItems[index];
+
+                  return SizedBox(
+                    // Prevent overflow
+                    height: 180, // Consistent height
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Display Date
+                        Text(
+                          "Date: ${item['datetime'] ?? ''}",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 15),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 5), // Reduce spacing
+                        Expanded(
+                          // Allow flexible space for content
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(15),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 5,
+                                  offset: Offset(2, 4),
+                                ),
+                              ],
+                            ),
+                            child: item['type'] == 'image'
+                                ? ClipRRect(
+                                    // Rounded corners for images
+                                    borderRadius: BorderRadius.circular(15),
+                                    child: Image.memory(
+                                      item['data'], // Image data from memory
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                    ),
+                                  )
+                                : item['type'] == 'video'
+                                    ? GestureDetector(
+                                        onTap: () {
+                                          _playVideo(context, item['data']);
+                                        },
+                                        child: Stack(
                                           children: [
-                                            SizedBox(height: 20),
-                                            TextFormField(
-                                              controller:
-                                                  _existPatientIdController,
-                                              decoration: InputDecoration(
-                                                labelText:
-                                                    'Serach By PaitentId or Phone',
-                                                border: OutlineInputBorder(),
-                                                suffixIcon: IconButton(
-                                                  icon: Icon(Icons.search),
-                                                  onPressed: () {
-                                                    _loadPatientDate(context);
-                                                  },
-                                                ),
-                                              ),
-                                              validator: (value) => value!
-                                                      .isEmpty
-                                                  ? 'Please enter patient ID'
-                                                  : null,
+                                            // 📌 Top-left video icon
+                                            Positioned(
+                                              top: 8,
+                                              left: 8,
+                                              child: Icon(Icons.videocam,
+                                                  size: 24,
+                                                  color: Colors.black54),
                                             ),
-                                            SizedBox(height: 8),
-                                            TextFormField(
-                                              controller:
-                                                  _existPatientNameController,
-                                              decoration: InputDecoration(
-                                                  labelText: 'Patient Name',
-                                                  border: OutlineInputBorder()),
-                                              validator: (value) => value!
-                                                      .isEmpty
-                                                  ? 'Please enter patient name'
-                                                  : null,
+                                            // 📌 Center play button
+                                            Center(
+                                              child: Icon(
+                                                  Icons.play_circle_fill,
+                                                  size: 40,
+                                                  color: Colors.black),
                                             ),
-                                            SizedBox(height: 8),
-                                            TextFormField(
-                                              controller:
-                                                  _existGenderController,
-                                              decoration: InputDecoration(
-                                                  labelText: 'Gender',
-                                                  border: OutlineInputBorder()),
-                                              validator: (value) =>
-                                                  value!.isEmpty
-                                                      ? 'Please enter gender'
-                                                      : null,
-                                            ),
-                                            SizedBox(height: 8),
-                                            TextFormField(
-                                              controller:
-                                                  _existDobController, // Ensure this controller is declared
-                                              decoration: InputDecoration(
-                                                labelText: 'Date Of Birth',
-                                                border: OutlineInputBorder(),
-                                                suffixIcon:
-                                                    Icon(Icons.calendar_today),
-                                              ),
-                                              validator: (value) =>
-                                                  value!.isEmpty
-                                                      ? 'Please enter dob'
-                                                      : null,
-                                              readOnly:
-                                                  true, // Prevent manual text input
-                                              onTap: () async {
-                                                DateTime? pickedDate =
-                                                    await showDatePicker(
-                                                  context: context,
-                                                  initialDate: DateTime.now(),
-                                                  firstDate: DateTime(1950),
-                                                  lastDate: DateTime(2100),
-                                                );
-
-                                                if (pickedDate != null) {
-                                                  // Check if a date was selected
-                                                  String formattedDate =
-                                                      DateFormat('yyyy-MM-dd')
-                                                          .format(
-                                                              pickedDate); // Format date
-                                                  _existDobController.text =
-                                                      formattedDate; // Update the controller
-                                                }
-                                              },
-                                            ),
-                                            SizedBox(height: 8),
-                                            TextFormField(
-                                              controller: _existPhoneController,
-                                              decoration: InputDecoration(
-                                                  labelText: 'Phone No.',
-                                                  border: OutlineInputBorder()),
-                                              validator: (value) =>
-                                                  value!.isEmpty
-                                                      ? 'Please enter phone no'
-                                                      : null,
-                                            ),
-                                            SizedBox(height: 8),
-                                            TextFormField(
-                                              controller:
-                                                  _existAddressController,
-                                              decoration: InputDecoration(
-                                                  labelText: 'Address',
-                                                  border: OutlineInputBorder()),
-                                              validator: (value) =>
-                                                  value!.isEmpty
-                                                      ? 'Please enter address'
-                                                      : null,
-                                            ),
-                                            SizedBox(height: 8),
-                                            TextFormField(
-                                              controller:
-                                                  _existAppointmentDateController, // Ensure this controller is declared
-                                              decoration: InputDecoration(
-                                                labelText: 'Apointment Date',
-                                                border: OutlineInputBorder(),
-                                                suffixIcon:
-                                                    Icon(Icons.calendar_today),
-                                              ),
-                                              validator: (value) => value!
-                                                      .isEmpty
-                                                  ? 'Please enter appointment date'
-                                                  : null,
-                                              readOnly:
-                                                  true, // Prevent manual text input
-                                              onTap: () async {
-                                                DateTime? pickedDate =
-                                                    await showDatePicker(
-                                                  context: context,
-                                                  initialDate: DateTime.now(),
-                                                  firstDate: DateTime(1950),
-                                                  lastDate: DateTime(2100),
-                                                );
-
-                                                if (pickedDate != null) {
-                                                  // Check if a date was selected
-                                                  String formattedDate =
-                                                      DateFormat('yyyy-MM-dd')
-                                                          .format(
-                                                              pickedDate); // Format date
-                                                  _existAppointmentDateController
-                                                          .text =
-                                                      formattedDate; // Update the controller
-                                                }
-                                              },
-                                            ),
-                                            SizedBox(height: 16),
-                                            ElevatedButton(
-                                              onPressed: () {
-                                                if (_updateFormKey.currentState!
-                                                    .validate()) {
-                                                  updateExistingPatient(
-                                                      context);
-                                                }
-                                              },
-                                              child: Text('Update'),
-                                              style: ElevatedButton.styleFrom(
-                                                padding: EdgeInsets.symmetric(
-                                                    horizontal: 40,
-                                                    vertical: 15),
-                                                backgroundColor: Colors.teal,
-                                                foregroundColor: Colors.white,
-                                              ),
-                                            )
                                           ],
                                         ),
-                                      )))
-                                ],
-                              ),
-                            )),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 20),
-                      Expanded(
-                        flex: 2,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Left Side: Camera Preview & Controls
-                            Expanded(
-                              flex: 3, // Adjust size ratio if needed
-                              child: Column(
-                                children: [
-                                  Text(
-                                    'Camera',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18),
-                                  ),
-                                  SizedBox(height: 30),
-                                  Padding(
-                                    padding: EdgeInsets.only(bottom: 10),
-                                    // Video Preview with Zoom Control
-                                    child: Expanded(
-                                      child: Stack(
-                                        alignment: Alignment.bottomCenter,
-                                        children: [
-                                          // Camera Preview
-                                          RepaintBoundary(
-                                            key: _videoKey,
-                                            child: Container(
-                                              width: 760,
-                                              height: 430,
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color: Colors.black),
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                              ),
-                                              child: _renderer.textureId != null
-                                                  ? ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              10),
-                                                      child: RTCVideoView(
-                                                          _renderer),
-                                                    )
-                                                  : Center(
-                                                      child:
-                                                          CircularProgressIndicator()),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ), // End of Expanded (Video & Controls)
-                                  ),
-                                  SizedBox(height: 10),
-
-                                  // Capture & Record Buttons
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      ElevatedButton.icon(
-                                        onPressed: () => _captureImage(context),
-                                        icon: Icon(
-                                          Icons.camera_alt,
-                                          color: Colors.white,
-                                        ),
-                                        label: Text('Capture'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.teal,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                      ),
-                                      SizedBox(width: 16),
-                                      ElevatedButton.icon(
-                                        onPressed: () {
-                                          if (isRecording) {
-                                            stopRecording();
-                                          } else {
-                                            startRecording(context);
-                                          }
-                                        },
-                                        icon: Icon(
-                                            color: Colors.white,
-                                            isRecording
-                                                ? Icons.stop
-                                                : Icons.videocam),
-                                        label: Text(
-                                            isRecording ? 'Stop' : 'Record'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: isRecording
-                                              ? Colors.red
-                                              : Colors.teal,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ), // End of Buttons Row
-                                ],
-                              ),
-                            ), // End of Camera Column
-
-                            SizedBox(width: 10, height: 50),
-                            // Spacing between video and mini box
-                            Padding(
-                              padding: EdgeInsets.only(top: 55, right: 5),
-                              // Right Side: Mini Box with Sliders
-                              child: Container(
-                                width: 200,
-                                height: 430, // Mini box width
-                                padding: EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                        color: Colors.black26, blurRadius: 5),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SizedBox(height: 10),
-
-                                    // Brightness Slider
-                                    Text("Brightness"),
-                                    Slider(
-                                      value: _brightness,
-                                      min: 0.0,
-                                      max: 2.0,
-                                      divisions: 10,
-                                      activeColor: Colors.teal,
-                                      label: _brightness.toStringAsFixed(1),
-                                      onChanged: (double value) =>
-                                          _updateCameraSettings(
-                                              "brightness", value),
-                                    ),
-
-                                    // Contrast Slider
-                                    Text("Contrast"),
-                                    Slider(
-                                      value: _contrast,
-                                      min: 0.5,
-                                      max: 2.0,
-                                      divisions: 10,
-                                      label: _contrast.toStringAsFixed(1),
-                                      activeColor: Colors.teal,
-                                      onChanged: (double value) =>
-                                          _updateCameraSettings(
-                                              "contrast", value),
-                                    ),
-
-                                    // Saturation Slider
-                                    Text("Saturation"),
-                                    Slider(
-                                      value: _saturation,
-                                      min: 0.5,
-                                      max: 2.0,
-                                      divisions: 10,
-                                      label: _saturation.toStringAsFixed(1),
-                                      activeColor: Colors.teal,
-                                      onChanged: (double value) =>
-                                          _updateCameraSettings(
-                                              "saturation", value),
-                                    ),
-                                    Text("Zoom"),
-                                    Slider(
-                                      value: _zoomLevel,
-                                      min: 1.0,
-                                      max:
-                                          5.0, // Adjust max zoom as per camera capability
-                                      divisions: 10,
-                                      activeColor: Colors.teal,
-                                      label: _zoomLevel.toStringAsFixed(1),
-                                      onChanged: (double value) =>
-                                          _updateZoom(value),
-                                    )
-                                  ],
-                                ),
-                              ), // End of Mini Box
-                            )
-                          ],
-                        ),
-                      ), // End of Expanded Row
-                    ])),
-                // Flex 3 positioned below both Flex 1 and Flex 2
-                SizedBox(height: 30),
-                Container(
-                  height: 300, // Adjust for scroll effect
-                  padding: EdgeInsets.only(top: 16, left: 30, right: 10),
-                  child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 200, // Grid item width
-                      childAspectRatio: 1, // Aspect ratio
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 20,
-                    ),
-                    itemCount: capturedItems.length,
-                    itemBuilder: (context, index) {
-                      final item = capturedItems[index];
-
-                      return SizedBox(
-                        // Prevent overflow
-                        height: 180, // Consistent height
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Display Date
-                            Text(
-                              "Date: ${item['datetime'] ?? ''}",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15),
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(height: 5), // Reduce spacing
-                            Expanded(
-                              // Allow flexible space for content
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.7),
-                                  borderRadius: BorderRadius.circular(15),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 5,
-                                      offset: Offset(2, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: item['type'] == 'image'
-                                    ? ClipRRect(
-                                        // Rounded corners for images
-                                        borderRadius: BorderRadius.circular(15),
-                                        child: Image.memory(
-                                          item[
-                                              'data'], // Image data from memory
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
-                                          height: double.infinity,
-                                        ),
                                       )
-                                    : item['type'] == 'video'
-                                        ? GestureDetector(
-                                            onTap: () {
-                                              _playVideo(context, item['data']);
-                                            },
-                                            child: Stack(
-                                              children: [
-                                                // 📌 Top-left video icon
-                                                Positioned(
-                                                  top: 8,
-                                                  left: 8,
-                                                  child: Icon(Icons.videocam,
-                                                      size: 24,
-                                                      color: Colors.black54),
-                                                ),
-                                                // 📌 Center play button
-                                                Center(
-                                                  child: Icon(
-                                                      Icons.play_circle_fill,
-                                                      size: 40,
-                                                      color: Colors.black),
-                                                ),
-                                              ],
-                                            ),
-                                          )
-                                        : Center(
-                                            child: Icon(Icons
-                                                .videocam)), // Default if type is unknown
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                SizedBox(height: 1),
-                Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                        padding: EdgeInsets.only(right: 50, bottom: 80),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            generatePdf(context);
-                          },
-                          child: Text('Generate Pdf'),
-                          style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 10),
-                            backgroundColor: Colors.teal,
-                            foregroundColor: Colors.white,
+                                    : Center(
+                                        child: Icon(Icons.videocam)), // Default if type is unknown
                           ),
-                        ) // Space between GridView and Button
-                        ))
-              ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ));
-  }
+
+            SizedBox(height: 1),
+            Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                    padding: EdgeInsets.only(right: 50, bottom: 80),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        generatePdf(context);
+                      },
+                      child: Text('Generate Pdf'),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                      ),
+                    ) // Space between GridView and Button
+                    ))
+          ],
+        ),
+      ),
+    ));
+}
 }
