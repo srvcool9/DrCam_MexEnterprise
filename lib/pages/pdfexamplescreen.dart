@@ -50,7 +50,7 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
         selectedIndices.add(index);
       }
       imagesBase64List= selectedIndices.map((i)=> images[i].imageBase64).toList();
-      _imageCountController.text= imagesBase64List.length.toString();
+     // _imageCountController.text= imagesBase64List.length.toString();
     
     });
   }
@@ -159,29 +159,32 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
         imagesBase64List= selectedIndices.map((i)=> images[i].imageBase64).toList();
        // imagesBase64List = images.map((i) => i.imageBase64).toList();
         capturedItems = [...newItems];
-        _imageCountController.text= imagesBase64List.length.toString();
+       // _imageCountController.text= imagesBase64List.length.toString();
       });
     }
   }
 
-  Future<void> _createAndSavePdf() async {
-    List<Uint8List> images = [];
-    // Create a PDF document
-    final pdf = pw.Document();
+ Future<void> _createAndSavePdf() async {
+  List<Uint8List> images = [];
 
-    // Load an image from assets
-    Uint8List? imageBytes;
-    try {
-      if (imagesBase64List.isNotEmpty) {
-        imagesBase64List.forEach((i) {images.add(base64Decode(i));});
-      }
-    } catch (e) {
-      debugPrint('Error loading image: $e');
-     // Fallback to null if image loading fails
+  // Create a PDF document
+  final pdf = pw.Document();
+
+  // Load images from Base64 list
+  try {
+    if (imagesBase64List.isNotEmpty) {
+      imagesBase64List.forEach((i) {
+        images.add(base64Decode(i));
+      });
     }
+  } catch (e) {
+    debugPrint('Error loading images: $e');
+  }
 
-    // Add content to the PDF
-     for (Uint8List imageBytes in images) {
+  int imagesPerPage =  int.tryParse(_imageCountController.text) ?? 1;
+
+  // Loop to add images in groups to separate pages
+  for (int i = 0; i < images.length; i += imagesPerPage) {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -199,43 +202,57 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
               pw.SizedBox(height: 20),
               pw.Text('This is an example of adding text to a PDF.'),
               pw.SizedBox(height: 20),
-              pw.Text('Below is an image loaded from assets:'),
+              pw.Text('Below are images loaded from assets:'),
               pw.SizedBox(height: 10),
-              if (imageBytes != null)
-                pw.Image(
-                  pw.MemoryImage(imageBytes),
-                  width: 200,
-                  height: 200,
-                )
-              else
-                pw.Text('Image not found.'),
+              // Display images for the current page
+              pw.Wrap(
+                spacing: 10, // Horizontal space between images
+                runSpacing: 10, // Vertical space between images
+                children: List.generate(
+                  imagesPerPage,
+                  (index) {
+                    int imageIndex = i + index;
+                    if (imageIndex < images.length) {
+                      return pw.Image(
+                        pw.MemoryImage(images[imageIndex]),
+                        width: 200,
+                        height: 200,
+                      );
+                    } else {
+                      return pw.Container(); // Empty placeholder
+                    }
+                  },
+                ),
+              ),
             ],
           );
         },
       ),
     );
-     }
-    // Prompt the user to select a save location
-    String? savePath;
-    try {
-      savePath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save PDF to',
-        fileName: 'images.pdf',
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-      );
-    } catch (e) {
-      debugPrint('Error opening file picker: $e');
-    }
-
-    if (savePath != null) {
-      final file = File(savePath);
-      await file.writeAsBytes(await pdf.save());
-      showSuccessNotification(context, "Pdf downloaded successfully");
-    } else {
-      showErrorNotification(context, "Something went wrong");
-    }
   }
+
+  // Prompt user to select a save location
+  String? savePath;
+  try {
+    savePath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save PDF to',
+      fileName: 'images.pdf',
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+  } catch (e) {
+    debugPrint('Error opening file picker: $e');
+  }
+
+  if (savePath != null) {
+    final file = File(savePath);
+    await file.writeAsBytes(await pdf.save());
+    showSuccessNotification(context, "Pdf downloaded successfully");
+  } else {
+    showErrorNotification(context, "Something went wrong");
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +276,7 @@ class _PDFExampleScreenState extends State<PDFExampleScreen> {
                     Padding(
                         padding: EdgeInsets.only(right: 80, bottom: 15),
                         child: Text(
-                          "Image count",
+                          "ImagesPerPage",
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
