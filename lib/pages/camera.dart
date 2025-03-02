@@ -763,7 +763,7 @@ class _CameraPageState extends State<Camera>
             child: Column(
               children: [
                 Container(
-                    height: 550,
+                    height: 650,
                     child: Row(children: [
                       Expanded(
                         flex: 1,
@@ -782,265 +782,335 @@ class _CameraPageState extends State<Camera>
                                 Tab(text: 'Existing Patient'),
                               ],
                             ),
-                            SizedBox(height: 16),
+                            SizedBox(height: 5),
                             Expanded(
                                 child: Padding(
-                              padding: EdgeInsets.only(left: 20, top: 10),
+                              padding: EdgeInsets.only(
+                                  left: 20, top: 0, bottom: 100),
                               child: TabBarView(
                                 controller: _tabController,
                                 children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment
-                                        .start, // Aligns form fields to left
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      TextFormField(
-                                        controller: _patientIdController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Patient Id',
-                                            border: OutlineInputBorder()),
-                                        validator: (value) => value!.isEmpty
-                                            ? 'Please enter patient ID'
-                                            : null,
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller: _patientNameController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Patient Name',
-                                            border: OutlineInputBorder()),
-                                        validator: (value) => value!.isEmpty
-                                            ? 'Please enter patient name'
-                                            : null,
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller: _genderController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Gender',
-                                            border: OutlineInputBorder()),
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller:
-                                            _dobController, // Ensure this controller is declared
-                                        decoration: InputDecoration(
-                                          labelText: 'Date Of Birth',
-                                          border: OutlineInputBorder(),
-                                          suffixIcon:
-                                              Icon(Icons.calendar_today),
-                                        ),
-                                        readOnly:
-                                            true, // Prevent manual text input
-                                        onTap: () async {
-                                          DateTime? pickedDate =
-                                              await showDatePicker(
-                                            context: context,
-                                            initialDate: DateTime.now(),
-                                            firstDate: DateTime(2000),
-                                            lastDate: DateTime(2100),
-                                          );
+                                  SingleChildScrollView(
+                                    child: Form(
+                                      key: _formKey,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment
+                                            .start, // Aligns form fields to left
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          // TextFormField(
+                                          //   controller: _patientIdController,
+                                          //   decoration: InputDecoration(
+                                          //       labelText: 'Patient Id',
+                                          //       border: OutlineInputBorder()),
+                                          //   validator: (value) => value!.isEmpty
+                                          //       ? 'Please enter patient ID'
+                                          //       : null,
+                                          // ),
+                                          SizedBox(height: 8),
+                                          TextFormField(
+                                            controller: _patientNameController,
+                                            decoration: InputDecoration(
+                                                labelText: 'Patient Name',
+                                                border: OutlineInputBorder()),
+                                            validator: (value) => value!.isEmpty
+                                                ? 'Please enter patient name'
+                                                : null,
+                                          ),
+                                          SizedBox(height: 8),
+                                          TextFormField(
+                                            controller: _genderController,
+                                            decoration: InputDecoration(
+                                                labelText: 'Gender',
+                                                border: OutlineInputBorder()),
+                                            validator: (value) => value!.isEmpty
+                                                ? 'Please enter gender'
+                                                : null,
+                                          ),
+                                          SizedBox(height: 8),
+                                          TextFormField(
+                                            controller:
+                                                _dobController, // Ensure this controller is declared
+                                            decoration: InputDecoration(
+                                              labelText: 'Date Of Birth',
+                                              border: OutlineInputBorder(),
+                                              suffixIcon:
+                                                  Icon(Icons.calendar_today),
+                                            ),
+                                            validator: (value) => value!.isEmpty
+                                                ? 'Please select dob'
+                                                : null,
+                                            readOnly:
+                                                true, // Prevent manual text input
+                                            onTap: () async {
+                                              DateTime? pickedDate =
+                                                  await showDatePicker(
+                                                context: context,
+                                                initialDate: DateTime.now(),
+                                                firstDate: DateTime(1950),
+                                                lastDate: DateTime(2100),
+                                              );
 
-                                          if (pickedDate != null) {
-                                            // Check if a date was selected
-                                            String formattedDate =
-                                                DateFormat('yyyy-MM-dd').format(
-                                                    pickedDate); // Format date
-                                            _dobController.text =
-                                                formattedDate; // Update the controller
-                                          }
-                                        },
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller: _phoneController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Phone No.',
-                                            border: OutlineInputBorder()),
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller: _addressController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Address',
-                                            border: OutlineInputBorder()),
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller:
-                                            _appointmentDateController, // Ensure this controller is declared
-                                        decoration: InputDecoration(
-                                          labelText: 'Apointment Date',
-                                          border: OutlineInputBorder(),
-                                          suffixIcon:
-                                              Icon(Icons.calendar_today),
-                                        ),
-                                        readOnly:
-                                            true, // Prevent manual text input
-                                        onTap: () async {
-                                          DateTime? pickedDate =
-                                              await showDatePicker(
-                                            context: context,
-                                            initialDate: DateTime.now(),
-                                            firstDate: DateTime(2000),
-                                            lastDate: DateTime(2100),
-                                          );
-
-                                          if (pickedDate != null) {
-                                            // Check if a date was selected
-                                            String formattedDate =
-                                                DateFormat('yyyy-MM-dd').format(
-                                                    pickedDate); // Format date
-                                            _appointmentDateController.text =
-                                                formattedDate; // Update the controller
-                                          }
-                                        },
-                                      ),
-                                      SizedBox(height: 16),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          savePatient(context);
-                                        },
-                                        child: Text('Save'),
-                                        style: ElevatedButton.styleFrom(
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: 40, vertical: 15),
-                                          backgroundColor: Colors.teal,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                      )
-                                    ],
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      TextFormField(
-                                        controller: _existPatientIdController,
-                                        decoration: InputDecoration(
-                                          labelText:
-                                              'Serach By PaitentId or Phone',
-                                          border: OutlineInputBorder(),
-                                          suffixIcon: IconButton(
-                                            icon: Icon(Icons.search),
-                                            onPressed: () {
-                                              _loadPatientDate(context);
+                                              if (pickedDate != null) {
+                                                // Check if a date was selected
+                                                String formattedDate = DateFormat(
+                                                        'yyyy-MM-dd')
+                                                    .format(
+                                                        pickedDate); // Format date
+                                                _dobController.text =
+                                                    formattedDate; // Update the controller
+                                              }
                                             },
                                           ),
-                                        ),
-                                        validator: (value) => value!.isEmpty
-                                            ? 'Please enter patient ID'
-                                            : null,
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller: _existPatientNameController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Patient Name',
-                                            border: OutlineInputBorder()),
-                                        validator: (value) => value!.isEmpty
-                                            ? 'Please enter patient name'
-                                            : null,
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller: _existGenderController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Gender',
-                                            border: OutlineInputBorder()),
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller:
-                                            _existDobController, // Ensure this controller is declared
-                                        decoration: InputDecoration(
-                                          labelText: 'Date Of Birth',
-                                          border: OutlineInputBorder(),
-                                          suffixIcon:
-                                              Icon(Icons.calendar_today),
-                                        ),
-                                        readOnly:
-                                            true, // Prevent manual text input
-                                        onTap: () async {
-                                          DateTime? pickedDate =
-                                              await showDatePicker(
-                                            context: context,
-                                            initialDate: DateTime.now(),
-                                            firstDate: DateTime(2000),
-                                            lastDate: DateTime(2100),
-                                          );
+                                          SizedBox(height: 8),
+                                          TextFormField(
+                                            controller: _phoneController,
+                                            decoration: InputDecoration(
+                                                labelText: 'Phone No.',
+                                                border: OutlineInputBorder()),
+                                          ),
+                                          SizedBox(height: 8),
+                                          TextFormField(
+                                            controller: _addressController,
+                                            decoration: InputDecoration(
+                                                labelText: 'Address',
+                                                border: OutlineInputBorder()),
+                                            validator: (value) => value!.isEmpty
+                                                ? 'Please select address'
+                                                : null,
+                                          ),
+                                          SizedBox(height: 8),
+                                          TextFormField(
+                                            controller:
+                                                _appointmentDateController, // Ensure this controller is declared
+                                            decoration: InputDecoration(
+                                              labelText: 'Apointment Date',
+                                              border: OutlineInputBorder(),
+                                              suffixIcon:
+                                                  Icon(Icons.calendar_today),
+                                            ),
+                                            validator: (value) => value!.isEmpty
+                                                ? 'Please select appointment date'
+                                                : null,
+                                            readOnly:
+                                                true, // Prevent manual text input
+                                            onTap: () async {
+                                              DateTime? pickedDate =
+                                                  await showDatePicker(
+                                                context: context,
+                                                initialDate: DateTime.now(),
+                                                firstDate: DateTime(1950),
+                                                lastDate: DateTime(2100),
+                                              );
 
-                                          if (pickedDate != null) {
-                                            // Check if a date was selected
-                                            String formattedDate =
-                                                DateFormat('yyyy-MM-dd').format(
-                                                    pickedDate); // Format date
-                                            _existDobController.text =
-                                                formattedDate; // Update the controller
-                                          }
-                                        },
+                                              if (pickedDate != null) {
+                                                // Check if a date was selected
+                                                String formattedDate = DateFormat(
+                                                        'yyyy-MM-dd')
+                                                    .format(
+                                                        pickedDate); // Format date
+                                                _appointmentDateController
+                                                        .text =
+                                                    formattedDate; // Update the controller
+                                              }
+                                            },
+                                          ),
+                                          SizedBox(height: 16),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              if (_formKey.currentState!
+                                                  .validate()) {
+                                                savePatient(context);
+                                              }
+                                            },
+                                            child: Text('Save'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 40, vertical: 15),
+                                              backgroundColor: Colors.teal,
+                                              foregroundColor:
+                                                  const ui.Color.fromARGB(
+                                                      255, 6, 4, 4),
+                                            ),
+                                          )
+                                        ],
                                       ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller: _existPhoneController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Phone No.',
-                                            border: OutlineInputBorder()),
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller: _existAddressController,
-                                        decoration: InputDecoration(
-                                            labelText: 'Address',
-                                            border: OutlineInputBorder()),
-                                      ),
-                                      SizedBox(height: 8),
-                                      TextFormField(
-                                        controller:
-                                            _existAppointmentDateController, // Ensure this controller is declared
-                                        decoration: InputDecoration(
-                                          labelText: 'Apointment Date',
-                                          border: OutlineInputBorder(),
-                                          suffixIcon:
-                                              Icon(Icons.calendar_today),
-                                        ),
-                                        readOnly:
-                                            true, // Prevent manual text input
-                                        onTap: () async {
-                                          DateTime? pickedDate =
-                                              await showDatePicker(
-                                            context: context,
-                                            initialDate: DateTime.now(),
-                                            firstDate: DateTime(2000),
-                                            lastDate: DateTime(2100),
-                                          );
-
-                                          if (pickedDate != null) {
-                                            // Check if a date was selected
-                                            String formattedDate =
-                                                DateFormat('yyyy-MM-dd').format(
-                                                    pickedDate); // Format date
-                                            _existAppointmentDateController
-                                                    .text =
-                                                formattedDate; // Update the controller
-                                          }
-                                        },
-                                      ),
-                                      SizedBox(height: 16),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          updateExistingPatient(context);
-                                        },
-                                        child: Text('Update'),
-                                        style: ElevatedButton.styleFrom(
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: 40, vertical: 15),
-                                          backgroundColor: Colors.teal,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                      )
-                                    ],
+                                    ),
                                   ),
+                                  SingleChildScrollView(
+                                    
+                            
+                                   child:  Form(
+                                        key: _updateFormKey,
+                                      
+                                      child: Padding(
+                                        padding: EdgeInsets.only(top: 0),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            SizedBox(height: 20),
+                                            TextFormField(
+                                              controller:
+                                                  _existPatientIdController,
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    'Serach By PaitentId or Phone',
+                                                border: OutlineInputBorder(),
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(Icons.search),
+                                                  onPressed: () {
+                                                    _loadPatientDate(context);
+                                                  },
+                                                ),
+                                              ),
+                                              validator: (value) => value!
+                                                      .isEmpty
+                                                  ? 'Please enter patient ID'
+                                                  : null,
+                                            ),
+                                            SizedBox(height: 8),
+                                            TextFormField(
+                                              controller:
+                                                  _existPatientNameController,
+                                              decoration: InputDecoration(
+                                                  labelText: 'Patient Name',
+                                                  border: OutlineInputBorder()),
+                                              validator: (value) => value!
+                                                      .isEmpty
+                                                  ? 'Please enter patient name'
+                                                  : null,
+                                            ),
+                                            SizedBox(height: 8),
+                                            TextFormField(
+                                              controller:
+                                                  _existGenderController,
+                                              decoration: InputDecoration(
+                                                  labelText: 'Gender',
+                                                  border: OutlineInputBorder()),
+                                              validator: (value) =>
+                                                  value!.isEmpty
+                                                      ? 'Please enter gender'
+                                                      : null,
+                                            ),
+                                            SizedBox(height: 8),
+                                            TextFormField(
+                                              controller:
+                                                  _existDobController, // Ensure this controller is declared
+                                              decoration: InputDecoration(
+                                                labelText: 'Date Of Birth',
+                                                border: OutlineInputBorder(),
+                                                suffixIcon:
+                                                    Icon(Icons.calendar_today),
+                                              ),
+                                              validator: (value) =>
+                                                  value!.isEmpty
+                                                      ? 'Please enter dob'
+                                                      : null,
+                                              readOnly:
+                                                  true, // Prevent manual text input
+                                              onTap: () async {
+                                                DateTime? pickedDate =
+                                                    await showDatePicker(
+                                                  context: context,
+                                                  initialDate: DateTime.now(),
+                                                  firstDate: DateTime(1950),
+                                                  lastDate: DateTime(2100),
+                                                );
+
+                                                if (pickedDate != null) {
+                                                  // Check if a date was selected
+                                                  String formattedDate =
+                                                      DateFormat('yyyy-MM-dd')
+                                                          .format(
+                                                              pickedDate); // Format date
+                                                  _existDobController.text =
+                                                      formattedDate; // Update the controller
+                                                }
+                                              },
+                                            ),
+                                            SizedBox(height: 8),
+                                            TextFormField(
+                                              controller: _existPhoneController,
+                                              decoration: InputDecoration(
+                                                  labelText: 'Phone No.',
+                                                  border: OutlineInputBorder()),
+                                              validator: (value) =>
+                                                  value!.isEmpty
+                                                      ? 'Please enter phone no'
+                                                      : null,
+                                            ),
+                                            SizedBox(height: 8),
+                                            TextFormField(
+                                              controller:
+                                                  _existAddressController,
+                                              decoration: InputDecoration(
+                                                  labelText: 'Address',
+                                                  border: OutlineInputBorder()),
+                                              validator: (value) =>
+                                                  value!.isEmpty
+                                                      ? 'Please enter address'
+                                                      : null,
+                                            ),
+                                            SizedBox(height: 8),
+                                            TextFormField(
+                                              controller:
+                                                  _existAppointmentDateController, // Ensure this controller is declared
+                                              decoration: InputDecoration(
+                                                labelText: 'Apointment Date',
+                                                border: OutlineInputBorder(),
+                                                suffixIcon:
+                                                    Icon(Icons.calendar_today),
+                                              ),
+                                              validator: (value) => value!
+                                                      .isEmpty
+                                                  ? 'Please enter appointment date'
+                                                  : null,
+                                              readOnly:
+                                                  true, // Prevent manual text input
+                                              onTap: () async {
+                                                DateTime? pickedDate =
+                                                    await showDatePicker(
+                                                  context: context,
+                                                  initialDate: DateTime.now(),
+                                                  firstDate: DateTime(1950),
+                                                  lastDate: DateTime(2100),
+                                                );
+
+                                                if (pickedDate != null) {
+                                                  // Check if a date was selected
+                                                  String formattedDate =
+                                                      DateFormat('yyyy-MM-dd')
+                                                          .format(
+                                                              pickedDate); // Format date
+                                                  _existAppointmentDateController
+                                                          .text =
+                                                      formattedDate; // Update the controller
+                                                }
+                                              },
+                                            ),
+                                            SizedBox(height: 16),
+                                            ElevatedButton(
+                                              onPressed: () {
+                                                if (_updateFormKey.currentState!
+                                                    .validate()) {
+                                                  updateExistingPatient(
+                                                      context);
+                                                }
+                                              },
+                                              child: Text('Update'),
+                                              style: ElevatedButton.styleFrom(
+                                                padding: EdgeInsets.symmetric(
+                                                    horizontal: 40,
+                                                    vertical: 15),
+                                                backgroundColor: Colors.teal,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                            )
+                                          ],
+                                        ),
+                                      )))
                                 ],
                               ),
                             )),
@@ -1066,10 +1136,9 @@ class _CameraPageState extends State<Camera>
                                   ),
                                   SizedBox(height: 30),
                                   Padding(
-                                    padding: EdgeInsets.only(bottom:10),
+                                    padding: EdgeInsets.only(bottom: 10),
                                     // Video Preview with Zoom Control
-                                    child:
-                                     Expanded(
+                                    child: Expanded(
                                       child: Stack(
                                         alignment: Alignment.bottomCenter,
                                         children: [
@@ -1101,7 +1170,7 @@ class _CameraPageState extends State<Camera>
                                         ],
                                       ),
                                     ), // End of Expanded (Video & Controls)
-                                 ),
+                                  ),
                                   SizedBox(height: 10),
 
                                   // Capture & Record Buttons
@@ -1110,7 +1179,10 @@ class _CameraPageState extends State<Camera>
                                     children: [
                                       ElevatedButton.icon(
                                         onPressed: () => _captureImage(context),
-                                        icon: Icon(Icons.camera_alt,color: Colors.white,),
+                                        icon: Icon(
+                                          Icons.camera_alt,
+                                          color: Colors.white,
+                                        ),
                                         label: Text('Capture'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.teal,
@@ -1127,10 +1199,10 @@ class _CameraPageState extends State<Camera>
                                           }
                                         },
                                         icon: Icon(
-                                          color: Colors.white,
-                                          isRecording
-                                            ? Icons.stop
-                                            : Icons.videocam),
+                                            color: Colors.white,
+                                            isRecording
+                                                ? Icons.stop
+                                                : Icons.videocam),
                                         label: Text(
                                             isRecording ? 'Stop' : 'Record'),
                                         style: ElevatedButton.styleFrom(

@@ -118,10 +118,10 @@ class Queries {
   ''';
 
   static const String GET_PATIENTS_COUNT_VISITED_CURRENT_YEAR = '''
-   select count(distinct p.patientId) as VisitedThisMonth
+   select count(distinct p.patientId) as VisitedThisYear
    from patients p 
    inner join patient_history ph 
    on ph.patientId =p.patientId 
-   where strftime('%m', 'now') = strftime('%m', ph.appointmentDate)
+   where strftime('%Y', 'now') = strftime('%Y', ph.appointmentDate)
   ''';
 }
