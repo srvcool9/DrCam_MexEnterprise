@@ -215,6 +215,25 @@ Future<List<PatientHistoryDto>> getGridData() async{
   }
 }
 
+Future<int> retriveIntOutput(String query, List<Object?> args) async {
+  final db = await database; // Ensure you have an open database instance
+  try {
+    final List<Map<String, dynamic>> result = await db.rawQuery(query, args);
+    if (result.isNotEmpty && result.first.values.isNotEmpty) {
+      return result.first.values.first as int; // Extract the integer value
+    } else {
+      return 0; // Return 0 if no result is found
+    }
+  } catch (e) {
+    print("Error executing query: $e");
+    return 0; // Return 0 in case of an error
+  }
+}
+
+
+
+
+
 
 
 

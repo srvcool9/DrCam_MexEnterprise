@@ -1,3 +1,5 @@
+import 'package:doctorcam/constants/queries.dart';
+import 'package:doctorcam/repository/PatientHistoryRepository.dart';
 import 'package:flutter/material.dart';
 
 class LandingScreen extends StatefulWidget {
@@ -6,47 +8,94 @@ class LandingScreen extends StatefulWidget {
 }
 
 class LandingPageState extends State<LandingScreen> {
-  final List<Map<String, dynamic>> stats = [
-    {'value': '500', 'label': 'Total patients registered', 'icon': Icons.people},
-    {'value': '10', 'label': 'Patients visited this week', 'icon': Icons.calendar_today},
-    {'value': '50', 'label': 'Patients visited this month', 'icon': Icons.date_range},
-    {'value': '350', 'label': 'Patients visited this year', 'icon': Icons.timeline},
-    {'value': '70', 'label': 'Frequently visiting patients', 'icon': Icons.repeat},
-  ];
+  late Patienthistoryrepository patientHistoryRepository;
 
- @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Colors.white,
-    body: Padding(
-      padding: const EdgeInsets.all(50.0),
-      child: GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, // Number of columns
-          crossAxisSpacing: 16.0,
-          mainAxisSpacing: 16.0,
-          childAspectRatio: 2.0,
-        ),
-        itemCount: stats.length,
-        itemBuilder: (context, index) {
-          final stat = stats[index];
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white, // Blue background color for each card
-              borderRadius: BorderRadius.circular(8.0), // Optional rounded corners
-            ),
-            child: StatCard(
-              value: stat['value']!,
-              label: stat['label']!,
-              icon: stat['icon']!,
-            ),
-          );
+  final List<Map<String, dynamic>> stats = [];
+
+  @override
+  void initState() {
+    super.initState();
+    patientHistoryRepository = Patienthistoryrepository();
+    prepareDashboardData();
+  }
+
+  Future<void> prepareDashboardData() async {
+    int totalRegistered = await patientHistoryRepository
+        .getDashboardData(Queries.GET_TOTAL_REGISTERED_PATIENTS);
+
+    int visitedThisWeek = await patientHistoryRepository
+        .getDashboardData(Queries.GET_PATIENTS_COUNT_VISITED_CURRENT_WEEK);
+
+    int visitedThisMonth = await patientHistoryRepository
+        .getDashboardData(Queries.GET_PATIENTS_COUNT_VISITED_CURRENT_MONTH);    
+
+    int visitedThisYear = await patientHistoryRepository
+        .getDashboardData(Queries.GET_PATIENTS_COUNT_VISITED_CURRENT_YEAR);    
+
+    this.setState(() {
+      stats.addAll([
+        {
+          'value': totalRegistered.toString(),
+          'label': 'Total patients registered',
+          'icon': Icons.people
         },
-      ),
-    ),
-  );
-}
+        {
+          'value': visitedThisWeek.toString(),
+          'label': 'Patients visited this week',
+          'icon': Icons.calendar_today
+        },
+        {
+          'value': visitedThisMonth.toString(),
+          'label': 'Patients visited this month',
+          'icon': Icons.date_range
+        },
+        {
+          'value': visitedThisYear.toString(),
+          'label': 'Patients visited this year',
+          'icon': Icons.timeline
+        },
+        {
+          'value': '0',
+          'label': 'Frequently visiting patients',
+          'icon': Icons.repeat
+        }
+      ]);
+    });
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Padding(
+        padding: const EdgeInsets.all(50.0),
+        child: GridView.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3, // Number of columns
+            crossAxisSpacing: 16.0,
+            mainAxisSpacing: 16.0,
+            childAspectRatio: 2.0,
+          ),
+          itemCount: stats.length,
+          itemBuilder: (context, index) {
+            final stat = stats[index];
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white, // Blue background color for each card
+                borderRadius:
+                    BorderRadius.circular(8.0), // Optional rounded corners
+              ),
+              child: StatCard(
+                value: stat['value']!,
+                label: stat['label']!,
+                icon: stat['icon']!,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 }
 
 class StatCard extends StatelessWidget {

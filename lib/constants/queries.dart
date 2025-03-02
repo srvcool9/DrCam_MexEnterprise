@@ -95,4 +95,33 @@ class Queries {
    pi where pi.patientId =?
 
   ''';
+
+  static const String GET_TOTAL_REGISTERED_PATIENTS = '''
+   select count(p.patientId) as TotalRegistered
+   from patients p 
+  ''';
+
+  static const String GET_PATIENTS_COUNT_VISITED_CURRENT_WEEK = '''
+   select count(distinct p.patientId) as VisitedThisWeek
+   from patients p 
+   inner join patient_history ph 
+   on ph.patientId =p.patientId 
+   where ((strftime('%d', 'now') - 1) / 7 + 1) = ((strftime('%d', ph.appointmentDate) - 1) / 7 + 1)
+  ''';
+
+  static const String GET_PATIENTS_COUNT_VISITED_CURRENT_MONTH = '''
+   select count(distinct p.patientId) as VisitedThisMonth
+   from patients p 
+   inner join patient_history ph 
+   on ph.patientId =p.patientId 
+   where strftime('%m', 'now') = strftime('%m', ph.appointmentDate)
+  ''';
+
+  static const String GET_PATIENTS_COUNT_VISITED_CURRENT_YEAR = '''
+   select count(distinct p.patientId) as VisitedThisMonth
+   from patients p 
+   inner join patient_history ph 
+   on ph.patientId =p.patientId 
+   where strftime('%m', 'now') = strftime('%m', ph.appointmentDate)
+  ''';
 }

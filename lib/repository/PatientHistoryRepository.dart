@@ -28,6 +28,8 @@ Future<List<PatientHistoryDto>> getGridData() async {
   }
 
 
-
+Future<int> getDashboardData(String query) async {
+  return await dbConfig.retriveIntOutput(query, []);
+}
   
 }

@@ -1065,10 +1065,10 @@ class _CameraPageState extends State<Camera>
                                         fontSize: 18),
                                   ),
                                   SizedBox(height: 30),
-                                  // Padding(
-                                  //   padding: EdgeInsets.only(top:10),
-                                  //   // Video Preview with Zoom Control
-                                  //   child:
+                                  Padding(
+                                    padding: EdgeInsets.only(bottom:10),
+                                    // Video Preview with Zoom Control
+                                    child:
                                      Expanded(
                                       child: Stack(
                                         alignment: Alignment.bottomCenter,
@@ -1077,8 +1077,8 @@ class _CameraPageState extends State<Camera>
                                           RepaintBoundary(
                                             key: _videoKey,
                                             child: Container(
-                                              width: 900,
-                                              height: 900,
+                                              width: 760,
+                                              height: 430,
                                               decoration: BoxDecoration(
                                                 border: Border.all(
                                                     color: Colors.black),
@@ -1101,7 +1101,7 @@ class _CameraPageState extends State<Camera>
                                         ],
                                       ),
                                     ), // End of Expanded (Video & Controls)
-                                 // ),
+                                 ),
                                   SizedBox(height: 10),
 
                                   // Capture & Record Buttons
@@ -1110,7 +1110,7 @@ class _CameraPageState extends State<Camera>
                                     children: [
                                       ElevatedButton.icon(
                                         onPressed: () => _captureImage(context),
-                                        icon: Icon(Icons.camera_alt),
+                                        icon: Icon(Icons.camera_alt,color: Colors.white,),
                                         label: Text('Capture'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.teal,
@@ -1126,7 +1126,9 @@ class _CameraPageState extends State<Camera>
                                             startRecording(context);
                                           }
                                         },
-                                        icon: Icon(isRecording
+                                        icon: Icon(
+                                          color: Colors.white,
+                                          isRecording
                                             ? Icons.stop
                                             : Icons.videocam),
                                         label: Text(
@@ -1151,7 +1153,7 @@ class _CameraPageState extends State<Camera>
                               // Right Side: Mini Box with Sliders
                               child: Container(
                                 width: 200,
-                                height: 450, // Mini box width
+                                height: 430, // Mini box width
                                 padding: EdgeInsets.all(10),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
