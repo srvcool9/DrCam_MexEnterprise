@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:doctorcam/models/patient_history.dart';
@@ -84,6 +85,11 @@ class _CameraPageState extends State<Camera>
   String? outputMp4Path; // Path for final converted MP4 file
   Process? _ffmpegProcess;
   String? cameraName;
+  double _brightness = 1.0;
+  double _contrast = 2.0;
+  double _exposure = 2.0;
+  double _zoomLevel = 1.0;
+  double _saturation = 1.0;
 
   @override
   void initState() {
@@ -139,6 +145,7 @@ class _CameraPageState extends State<Camera>
     _appointmentDateController.clear();
   }
 
+  void _updateCameraSettings(String dd, double value) {}
   void resetExistingPatientForm() {
     _existPatientIdController.clear();
     _existPatientNameController.clear();
@@ -309,11 +316,11 @@ class _CameraPageState extends State<Camera>
           'data': base64Decode(img.imageBase64),
           'datetime': img.createdOn
         };
-      }). toList();
+      }).toList();
 
       setState(() {
         //imagesBase64List = images.map((i) => i.imageBase64).toList();
-        capturedItems = [...capturedItems,...newItems];
+        capturedItems = [...capturedItems, ...newItems];
       });
     }
   }
@@ -333,7 +340,7 @@ class _CameraPageState extends State<Camera>
 
       setState(() {
         //videoPaths = videos.map((v) => v.videoPath).toList();
-          capturedItems = [...capturedItems,...newItems];
+        capturedItems = [...capturedItems, ...newItems];
       });
     }
   }
@@ -535,12 +542,43 @@ class _CameraPageState extends State<Camera>
           _mediaStream = mediaStream;
         });
         print("Camera initialized with device ID: $selectedDeviceId");
+        _applyConstraints();
       } else {
         print("No camera found.");
       }
     } catch (e) {
       print('Error initializing camera: $e');
     }
+  }
+
+  void _updateZoom(double zoom) {
+    var _videoTrack = _mediaStream!.getVideoTracks().first;
+    setState(() => _zoomLevel = zoom);
+    if (_videoTrack != null) {
+      _videoTrack!.applyConstraints({
+        'advanced': [
+          {'zoom': zoom}
+        ]
+      });
+    }
+  }
+
+  Future<void> _applyConstraints() async {
+    if (_mediaStream == null) return;
+
+    var videoTrack = _mediaStream!.getVideoTracks().first;
+    var supportedConstraints = navigator.mediaDevices.getSupportedConstraints();
+    print("ddd");
+
+    Map<String, dynamic> constraints = {
+      'advanced': [
+        {'brightness': _brightness},
+        {'contrast': _contrast},
+        {'exposureCompensation': _exposure},
+      ]
+    };
+
+    await videoTrack.applyConstraints(constraints);
   }
 
   Future<void> stopCamera() async {
@@ -1012,71 +1050,182 @@ class _CameraPageState extends State<Camera>
                       SizedBox(width: 20),
                       Expanded(
                         flex: 2,
-                        child: Column(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Camera',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 18),
-                            ),
-                            SizedBox(height: 30),
+                            // Left Side: Camera Preview & Controls
                             Expanded(
-                              child: RepaintBoundary(
-                                key: _videoKey,
-                                child: Container(
-                                  width: 900,
-                                  height: 900,
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.black),
-                                    borderRadius: BorderRadius.circular(10),
+                              flex: 3, // Adjust size ratio if needed
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'Camera',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18),
                                   ),
-                                  child: _renderer.textureId != null
-                                      ? ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          child: RTCVideoView(_renderer),
-                                        )
-                                      : Center(
-                                          child: CircularProgressIndicator()),
-                                ),
+                                  SizedBox(height: 30),
+                                  // Padding(
+                                  //   padding: EdgeInsets.only(top:10),
+                                  //   // Video Preview with Zoom Control
+                                  //   child:
+                                     Expanded(
+                                      child: Stack(
+                                        alignment: Alignment.bottomCenter,
+                                        children: [
+                                          // Camera Preview
+                                          RepaintBoundary(
+                                            key: _videoKey,
+                                            child: Container(
+                                              width: 900,
+                                              height: 900,
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: Colors.black),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              child: _renderer.textureId != null
+                                                  ? ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
+                                                      child: RTCVideoView(
+                                                          _renderer),
+                                                    )
+                                                  : Center(
+                                                      child:
+                                                          CircularProgressIndicator()),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ), // End of Expanded (Video & Controls)
+                                 // ),
+                                  SizedBox(height: 10),
+
+                                  // Capture & Record Buttons
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        onPressed: () => _captureImage(context),
+                                        icon: Icon(Icons.camera_alt),
+                                        label: Text('Capture'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.teal,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                      SizedBox(width: 16),
+                                      ElevatedButton.icon(
+                                        onPressed: () {
+                                          if (isRecording) {
+                                            stopRecording();
+                                          } else {
+                                            startRecording(context);
+                                          }
+                                        },
+                                        icon: Icon(isRecording
+                                            ? Icons.stop
+                                            : Icons.videocam),
+                                        label: Text(
+                                            isRecording ? 'Stop' : 'Record'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: isRecording
+                                              ? Colors.red
+                                              : Colors.teal,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ), // End of Buttons Row
+                                ],
                               ),
-                            ),
-                            SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                ElevatedButton.icon(
-                                  onPressed: () => _captureImage(context),
-                                  icon: Icon(Icons.camera_alt),
-                                  label: Text('Capture'),
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.teal,
-                                      foregroundColor: Colors.white),
+                            ), // End of Camera Column
+
+                            SizedBox(width: 10, height: 50),
+                            // Spacing between video and mini box
+                            Padding(
+                              padding: EdgeInsets.only(top: 55, right: 5),
+                              // Right Side: Mini Box with Sliders
+                              child: Container(
+                                width: 200,
+                                height: 450, // Mini box width
+                                padding: EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: Colors.black26, blurRadius: 5),
+                                  ],
                                 ),
-                                SizedBox(width: 16),
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    if (isRecording) {
-                                      stopRecording();
-                                    } else {
-                                      startRecording(context);
-                                    }
-                                  },
-                                  icon: Icon(isRecording
-                                      ? Icons.stop
-                                      : Icons.videocam),
-                                  label: Text(isRecording ? 'Stop' : 'Record'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        isRecording ? Colors.red : Colors.teal,
-                                    foregroundColor: Colors.white,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(height: 10),
+
+                                    // Brightness Slider
+                                    Text("Brightness"),
+                                    Slider(
+                                      value: _brightness,
+                                      min: 0.0,
+                                      max: 2.0,
+                                      divisions: 10,
+                                      activeColor: Colors.teal,
+                                      label: _brightness.toStringAsFixed(1),
+                                      onChanged: (double value) =>
+                                          _updateCameraSettings(
+                                              "brightness", value),
+                                    ),
+
+                                    // Contrast Slider
+                                    Text("Contrast"),
+                                    Slider(
+                                      value: _contrast,
+                                      min: 0.5,
+                                      max: 2.0,
+                                      divisions: 10,
+                                      label: _contrast.toStringAsFixed(1),
+                                      activeColor: Colors.teal,
+                                      onChanged: (double value) =>
+                                          _updateCameraSettings(
+                                              "contrast", value),
+                                    ),
+
+                                    // Saturation Slider
+                                    Text("Saturation"),
+                                    Slider(
+                                      value: _saturation,
+                                      min: 0.5,
+                                      max: 2.0,
+                                      divisions: 10,
+                                      label: _saturation.toStringAsFixed(1),
+                                      activeColor: Colors.teal,
+                                      onChanged: (double value) =>
+                                          _updateCameraSettings(
+                                              "saturation", value),
+                                    ),
+                                    Text("Zoom"),
+                                    Slider(
+                                      value: _zoomLevel,
+                                      min: 1.0,
+                                      max:
+                                          5.0, // Adjust max zoom as per camera capability
+                                      divisions: 10,
+                                      activeColor: Colors.teal,
+                                      label: _zoomLevel.toStringAsFixed(1),
+                                      onChanged: (double value) =>
+                                          _updateZoom(value),
+                                    )
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ), // End of Mini Box
+                            )
                           ],
                         ),
-                      ),
+                      ), // End of Expanded Row
                     ])),
                 // Flex 3 positioned below both Flex 1 and Flex 2
                 SizedBox(height: 30),
@@ -1195,54 +1344,3 @@ class _CameraPageState extends State<Camera>
         ));
   }
 }
-
-// class VideoPlayerWidget extends StatefulWidget {
-//   final String videoPath;
-
-//   const VideoPlayerWidget({required this.videoPath});
-
-//   @override
-//   _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
-// }
-
-// class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-//   VideoPlayerController? _controller; // ✅ Use nullable controller
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _initializeVideo();
-//   }
-
-//   void _initializeVideo() async {
-//     if (widget.videoPath.isNotEmpty && File(widget.videoPath).existsSync()) {
-//       _controller = VideoPlayerController.file(File(widget.videoPath))
-//         ..initialize().then((_) {
-//           if (mounted) {
-//             setState(() {});
-//             _controller!.play(); // Auto-play
-//           }
-//         }).catchError((error) {
-//           debugPrint("Error initializing video: $error");
-//         });
-//     } else {
-//       debugPrint("Invalid video path: ${widget.videoPath}");
-//     }
-//   }
-
-//   @override
-//   void dispose() {
-//     _controller?.dispose(); // ✅ Null check before disposal
-//     super.dispose();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return _controller != null && _controller!.value.isInitialized
-//         ? AspectRatio(
-//             aspectRatio: _controller!.value.aspectRatio,
-//             child: VideoPlayer(_controller!),
-//           )
-//         : Center(child: CircularProgressIndicator());
-//   }
-// }
