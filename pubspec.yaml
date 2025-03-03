@@ -52,6 +52,7 @@ dependencies:
   ffmpeg_kit_flutter_full: ^6.0.3
   process_run: ^1.2.2+1
   http: ^0.13.5
+  lottie:
   
 dev_dependencies:
   flutter_test:
@@ -82,6 +83,7 @@ flutter:
     - assets/doctor.png
     - assets/Animation.gif
     - assets/ffmpeg-plugin/bin/ffmpeg.exe
+    - assets/animations/my_animation.json
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

@@ -2,6 +2,7 @@ import 'package:doctorcam/models/doctor_profile.dart';
 import 'package:doctorcam/repository/DoctorProfileRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:lottie/lottie.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 
 class Login extends StatefulWidget {
@@ -253,11 +254,14 @@ class LoginState extends State<Login> {
                 // Right Side: Image
                 Expanded(
                   flex: 2,
-                  child: Image.asset(
-                    'assets/background.gif', // Replace with the correct path to your illustration
-                    fit: BoxFit.contain,
-                  ),
-                ),
+                  // child: Image.asset(
+                  //   'assets/background.gif', // Replace with the correct path to your illustration
+                  //   fit: BoxFit.contain,
+                  // ),
+                  child: Lottie.asset('assets/animations/my_animation.json',
+                   width: 300, height: 300),
+                 ),
+                
               ],
             ),
           ),
