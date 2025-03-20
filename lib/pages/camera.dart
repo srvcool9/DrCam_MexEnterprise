@@ -476,8 +476,7 @@ class _CameraPageState extends State<Camera>
     try {
       if (_patientNameController.text == "" &&
           _existPatientNameController.text == "") {
-        showErrorNotification(
-            context, "Please fill patient details to capture image");
+        saveGeneralImage(context);
       } else {
         RenderRepaintBoundary boundary = _videoKey.currentContext!
             .findRenderObject() as RenderRepaintBoundary;
@@ -504,6 +503,53 @@ class _CameraPageState extends State<Camera>
     }
   }
 
+  void saveGeneralImage(BuildContext context) async {
+    try {
+      RenderRepaintBoundary boundary =
+          _videoKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      ui.Image image = await boundary.toImage();
+      ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+
+      if (byteData != null) {
+        Uint8List pngBytes = byteData.buffer.asUint8List();
+        String base64String = base64Encode(pngBytes);
+
+        // Update state (UI) safely
+        setState(() {
+          imagesBase64List.add(base64String);
+          capturedItems.insert(0, {
+            'type': 'image',
+            'data': pngBytes,
+            'datetime': DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
+          });
+        });
+
+        // Get the directory to save the image
+        Directory baseDir = await getApplicationDocumentsDirectory();
+        Directory saveDir = Directory('${baseDir.path}/DrCamApp/Public/Images');
+
+        // Ensure the directory exists
+        if (!await saveDir.exists()) {
+          await saveDir.create(recursive: true);
+        }
+
+        // Generate file name
+        String currentDate =
+            DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
+        String filePath = '${saveDir.path}/$currentDate.png';
+
+        // Save file
+        File file = File(filePath);
+        await file.writeAsBytes(pngBytes);
+        showSuccessNotification(context, "Image saved successfully on path: $filePath");
+        print('✅ Image saved at: $filePath');
+      }
+    } catch (e) {
+      print('❌ Error saving image: $e');
+    }
+  }
+
   void toggleRecording(BuildContext context) {
     if (isRecording) {
       stopRecording();
@@ -513,9 +559,8 @@ class _CameraPageState extends State<Camera>
   }
 
   Future<void> _initializeCamera() async {
-    await _renderer.initialize(); // Ensure renderer is initialized
+    await _renderer.initialize();
     try {
-      // Ensure permissions are granted before enumerating devices
       await navigator.mediaDevices.getUserMedia({'video': true});
 
       List<MediaDeviceInfo> devices =
@@ -525,8 +570,7 @@ class _CameraPageState extends State<Camera>
       for (var device in devices) {
         print("Found Camera: ${device.label} (ID: ${device.deviceId})");
 
-        if (device.kind == 'videoinput' &&
-            device.label.contains("H1600 Cam")) {
+        if (device.kind == 'videoinput' && device.label.contains("H1600 Cam")) {
           selectedDeviceId = device.deviceId;
           break; // Stop searching once the desired camera is found
         }
@@ -537,13 +581,10 @@ class _CameraPageState extends State<Camera>
 
         final mediaStream = await navigator.mediaDevices.getUserMedia({
           'video': {
-            'deviceId':selectedDeviceId, // Ensure correct format
+            'deviceId': selectedDeviceId, // Ensure correct format
             'width': {'ideal': 1920}, // Adjust to match camera capability
             'height': {'ideal': 1080},
-            'frameRate': {
-              'ideal': 30,
-              'max': 60
-           }, 
+            'frameRate': {'ideal': 30, 'max': 60},
           },
           'audio': true,
         });
@@ -570,6 +611,8 @@ class _CameraPageState extends State<Camera>
     var _videoTrack = _mediaStream!.getVideoTracks().first;
     setState(() => _zoomLevel = zoom);
     if (_videoTrack != null) {
+      final settings = _videoTrack.getSettings();
+      print("ddd");
       _videoTrack!.applyConstraints({
         'advanced': [
           {'zoom': zoom}
@@ -611,8 +654,7 @@ class _CameraPageState extends State<Camera>
     try {
       if (_patientNameController.text == "" &&
           _existPatientNameController.text == "") {
-        showErrorNotification(
-            context, "Please fill patient details to record videos");
+            saveGenericVideos(context);
       } else {
         String patientName;
         final dir = await getApplicationDocumentsDirectory();
@@ -627,7 +669,7 @@ class _CameraPageState extends State<Camera>
           patientName = randomString;
         }
 
-        String patientDir = '${dir.path}\\DrCam_Videos\\$patientName';
+        String patientDir = '${dir.path}\\DrCamApp\\DrCam_Videos\\$patientName';
         Directory patientDirectory = Directory(patientDir);
 
         if (!patientDirectory.existsSync()) {
@@ -645,7 +687,7 @@ class _CameraPageState extends State<Camera>
 
         String ffmpegPath = await getFFmpegPath();
 
-         String videoDeviceName = "H1600 Cam";
+        String videoDeviceName = "H1600 Cam";
         //String? videoDeviceName = cameraName;
 
         //To record desktop
@@ -712,6 +754,68 @@ class _CameraPageState extends State<Camera>
         });
       }
     } catch (e, stackTrace) {
+      print("Exception while starting recording: $e");
+      print("StackTrace: $stackTrace");
+    }
+  }
+
+  Future<void> saveGenericVideos(BuildContext context) async {
+
+    try{
+    Directory baseDir = await getApplicationDocumentsDirectory();
+        Directory saveDir = Directory('${baseDir.path}\\DrCamApp\\Public\\Videos');
+
+        // Ensure the directory exists
+        if (!await saveDir.exists()) {
+          await saveDir.create(recursive: true);
+        }
+        String currentDate =
+            DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
+
+          this.setState(() {
+          outputMp4Path = '${saveDir.path}\\$currentDate.mp4';
+        });
+
+        String ffmpegPath = await getFFmpegPath();
+
+        String videoDeviceName = "H1600 Cam"; 
+          //MP4 format
+        List<String> command = [
+          '-f',
+          'dshow',
+          '-i',
+          'video=$videoDeviceName',
+          '-c:v',
+          'libx264',
+          '-preset',
+          'fast',
+          '-crf',
+          '23',
+          '-pix_fmt',
+          'yuv420p',
+          '-movflags',
+          '+faststart',
+          '-y',
+          outputMp4Path!,
+        ];
+
+        _ffmpegProcess =
+            await Process.start(ffmpegPath, command, runInShell: true);
+
+        setState(() {
+          isRecording = true;
+        });
+
+        _ffmpegProcess!.stdout.transform(const Utf8Decoder()).listen((data) {
+          print("FFmpeg Output: $data");
+        });
+
+        _ffmpegProcess!.stderr.transform(const Utf8Decoder()).listen((data) {
+          print("FFmpeg Error: $data");
+        });
+           showSuccessNotification(context, "Video saved successfully on path: $outputMp4Path");
+         
+    }catch (e, stackTrace) {
       print("Exception while starting recording: $e");
       print("StackTrace: $stackTrace");
     }

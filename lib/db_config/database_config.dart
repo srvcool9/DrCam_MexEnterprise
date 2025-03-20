@@ -24,10 +24,10 @@ class DatabaseConfig<T extends DatabaseModel> {
       databaseFactory = databaseFactoryFfi;
 
       final appDocumentsDir = await getApplicationDocumentsDirectory();
-      final dbPath = join(appDocumentsDir.path, "databases", "AppDb.db");
+      final dbPath = join(appDocumentsDir.path, "DrCamApp/databases", "AppDb.db");
 
       // Ensure 'databases' directory exists
-      final databasesDir = Directory(join(appDocumentsDir.path, "databases"));
+      final databasesDir = Directory(join(appDocumentsDir.path, "DrCamApp/databases"));
       if (!await databasesDir.exists()) {
         await databasesDir.create(recursive: true);
       }
