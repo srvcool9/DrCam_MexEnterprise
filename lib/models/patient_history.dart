@@ -3,12 +3,14 @@ import 'package:doctorcam/models/databasemodel.dart';
 class PatientHistory implements DatabaseModel {
   final int? id;
   final int patientId;
+  final String appointmentId;
   final String appointmentDate;
   final String createdOn;
 
   PatientHistory({
     required this.id,
     required this.patientId,
+    required this.appointmentId,
     required this.appointmentDate,
     required this.createdOn,
   });
@@ -17,6 +19,7 @@ class PatientHistory implements DatabaseModel {
     return {
       'id': id,
       'patientId': patientId,
+      'appointmentId':appointmentId,
       'appointmentDate': appointmentDate,
       'createdOn': createdOn,
     };
@@ -27,6 +30,7 @@ class PatientHistory implements DatabaseModel {
     return PatientHistory(
       id: map['id'],
       patientId: map['patientId'],
+      appointmentId: map['appointmentId'],
       appointmentDate: map['appointmentDate'],
       createdOn: map['createdOn'],
     );
@@ -36,6 +40,7 @@ class PatientHistory implements DatabaseModel {
     return PatientHistory(
       id: map['id'],
       patientId: map['patientId'],
+       appointmentId: map['appointmentId'],
       appointmentDate: map['appointmentDate'],
       createdOn: map['createdOn'],
     );

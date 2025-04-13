@@ -21,6 +21,7 @@ class Queries {
   static const String PATIENTS = '''
      CREATE TABLE IF NOT EXISTS patients (
         patientId INTEGER PRIMARY KEY AUTOINCREMENT,
+        appointmentId TEXT NOT NULL,
         patientName TEXT NOT NULL,
         gender TEXT NOT NULL,
         dateOfBirth TEXT NOT NULL,
@@ -32,6 +33,7 @@ class Queries {
   static const String PATIENT_HISTORY = '''
      CREATE TABLE IF NOT EXISTS patient_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        appointmentId TEXT NOT NULL,
         patientId INTEGER NOT NULL,
         appointmentDate TEXT NOT NULL,
         createdOn TEXT NOT NULL

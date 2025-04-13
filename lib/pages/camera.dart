@@ -56,6 +56,7 @@ class _CameraPageState extends State<Camera>
 
   final TextEditingController _patientIdController = TextEditingController();
   final TextEditingController _patientNameController = TextEditingController();
+  final TextEditingController _appointmentIdController = TextEditingController();
   final TextEditingController _genderController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -72,6 +73,7 @@ class _CameraPageState extends State<Camera>
       TextEditingController();
   final TextEditingController _existPatientNameController =
       TextEditingController();
+  final TextEditingController _existAppointmentIdController= TextEditingController();    
   final TextEditingController _existGenderController = TextEditingController();
   final TextEditingController _existDobController = TextEditingController();
   final TextEditingController _existPhoneController = TextEditingController();
@@ -126,6 +128,9 @@ class _CameraPageState extends State<Camera>
 
   void generatePdf(BuildContext context) {
     int? patientId = int.tryParse(_existPatientIdController.text);
+    if(patientId==null){
+      showErrorNotification(context, "Pdf can't be generated for generic images & videos");
+    }else{
     final dashboardState = context.findAncestorStateOfType<DashboardState>();
     if (dashboardState != null) {
       dashboardState.setState(() {
@@ -133,6 +138,7 @@ class _CameraPageState extends State<Camera>
         dashboardState.patientId = patientId!;
       });
     }
+  }
   }
 
   void resetNewPatientForm() {
@@ -274,8 +280,8 @@ class _CameraPageState extends State<Camera>
 
     final patientExists = await patientrepository.getPatientDetailByFeildName(
       'patients',
-      'patientId',
-      _existPatientIdController.text,
+      'appointmentId',
+      _existPatientIdController.text.toString(),
     );
 
     if (patientExists != null) {
@@ -350,6 +356,7 @@ class _CameraPageState extends State<Camera>
       final patient = PatientMaster(
         patientId: int.tryParse(_existPatientIdController.text) ?? 0,
         patientName: _existPatientNameController.text,
+        appointmentId: _existAppointmentIdController.text,
         gender: _existGenderController.text,
         dateOfBirth: _existDobController.text,
         phone: _existPhoneController.text,
@@ -363,6 +370,7 @@ class _CameraPageState extends State<Camera>
         final newApointment = PatientHistory(
           id: null,
           patientId: patientId,
+          appointmentId: _appointmentIdController.text,
           appointmentDate: _existAppointmentDateController.text,
           createdOn: DateTime.now().toString(),
         );
@@ -395,6 +403,7 @@ class _CameraPageState extends State<Camera>
         patientId:
             patientPersist?.patientId ?? null, // ✅ Use null-aware operator
         patientName: _patientNameController.text,
+        appointmentId: _appointmentIdController.text,
         gender: _genderController.text,
         dateOfBirth: _dobController.text,
         phone: _phoneController.text,
@@ -428,6 +437,7 @@ class _CameraPageState extends State<Camera>
         id: null,
         patientId: patientId,
         appointmentDate: _appointmentDateController.text,
+        appointmentId: _appointmentIdController.text,
         createdOn: DateTime.now().toString());
     int savedHistoryId =
         await patientHistoryRepository.insertPatientHistory(patientHistory);
@@ -570,7 +580,8 @@ class _CameraPageState extends State<Camera>
       for (var device in devices) {
         print("Found Camera: ${device.label} (ID: ${device.deviceId})");
 
-        if (device.kind == 'videoinput' && device.label.contains("H1600 Cam")) {
+       // if (device.kind == 'videoinput' && device.label.contains("H1600 Cam")) {
+       if (device.kind == 'videoinput' && device.label.contains("HP TrueVision HD Camera")) {
           selectedDeviceId = device.deviceId;
           break; // Stop searching once the desired camera is found
         }
@@ -918,6 +929,18 @@ class _CameraPageState extends State<Camera>
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
+                                            SizedBox(height: 8),
+                                            TextFormField(
+                                              controller:
+                                                  _appointmentIdController,
+                                              decoration: InputDecoration(
+                                                  labelText: 'Patient Id',
+                                                  border: OutlineInputBorder()),
+                                              validator: (value) => value!
+                                                      .isEmpty
+                                                  ? 'Please enter patient id'
+                                                  : null,
+                                            ),
                                             SizedBox(height: 8),
                                             TextFormField(
                                               controller:
