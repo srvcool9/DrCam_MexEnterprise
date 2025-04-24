@@ -8,6 +8,7 @@ import 'package:doctorcam/models/patient_images.dart';
 import 'package:doctorcam/models/patient_master.dart';
 import 'package:doctorcam/models/patient_video.dart';
 import 'package:doctorcam/pages/dashboard.dart';
+import 'package:doctorcam/pages/image-preview.dart';
 import 'package:doctorcam/pages/test-screen.dart';
 import 'package:doctorcam/repository/PatientHistoryRepository.dart';
 import 'package:doctorcam/repository/PatientImagesRepository.dart';
@@ -24,6 +25,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
+import 'package:doctorcam/logger/app-logger.dart';
 import 'dart:io'; // Required for file handling
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:process_run/process_run.dart';
@@ -39,6 +41,7 @@ class Camera extends StatefulWidget {
 class _CameraPageState extends State<Camera>
     with SingleTickerProviderStateMixin {
   final RTCVideoRenderer _renderer = RTCVideoRenderer();
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   MediaStream? _mediaStream;
   bool isRecording = false;
   late TabController _tabController;
@@ -56,7 +59,8 @@ class _CameraPageState extends State<Camera>
 
   final TextEditingController _patientIdController = TextEditingController();
   final TextEditingController _patientNameController = TextEditingController();
-  final TextEditingController _appointmentIdController = TextEditingController();
+  final TextEditingController _appointmentIdController =
+      TextEditingController();
   final TextEditingController _genderController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -73,7 +77,8 @@ class _CameraPageState extends State<Camera>
       TextEditingController();
   final TextEditingController _existPatientNameController =
       TextEditingController();
-  final TextEditingController _existAppointmentIdController= TextEditingController();    
+  final TextEditingController _existAppointmentIdController =
+      TextEditingController();
   final TextEditingController _existGenderController = TextEditingController();
   final TextEditingController _existDobController = TextEditingController();
   final TextEditingController _existPhoneController = TextEditingController();
@@ -104,7 +109,7 @@ class _CameraPageState extends State<Camera>
     _tabController = TabController(length: 2, vsync: this);
 
     _requestPermissions().then((_) {
-      _listCameras();
+      //_listCameras();
       getFFmpegPath();
       _initializeCamera();
     });
@@ -128,17 +133,18 @@ class _CameraPageState extends State<Camera>
 
   void generatePdf(BuildContext context) {
     int? patientId = int.tryParse(_existPatientIdController.text);
-    if(patientId==null){
-      showErrorNotification(context, "Pdf can't be generated for generic images & videos");
-    }else{
-    final dashboardState = context.findAncestorStateOfType<DashboardState>();
-    if (dashboardState != null) {
-      dashboardState.setState(() {
-        dashboardState.selectedIndex = 5; // Index of PDFExampleScreen
-        dashboardState.patientId = patientId!;
-      });
+    if (patientId == null) {
+      showErrorNotification(
+          context, "Pdf can't be generated for generic images & videos");
+    } else {
+      final dashboardState = context.findAncestorStateOfType<DashboardState>();
+      if (dashboardState != null) {
+        dashboardState.setState(() {
+          dashboardState.selectedIndex = 5; // Index of PDFExampleScreen
+          dashboardState.patientId = patientId!;
+        });
+      }
     }
-  }
   }
 
   void resetNewPatientForm() {
@@ -166,23 +172,23 @@ class _CameraPageState extends State<Camera>
     await [Permission.camera, Permission.microphone].request();
   }
 
-  Future<void> _listCameras() async {
-    try {
-      List<MediaDeviceInfo> devices =
-          await navigator.mediaDevices.enumerateDevices();
-      for (var device in devices) {
-        if (device.kind == 'videoinput') {
-          setState(() {
-            cameraName = device.label;
-          });
-          print("Camera Found: ${device.label} (ID: ${device.deviceId})");
-          print("camera name:  $cameraName");
-        }
-      }
-    } catch (e) {
-      print("Error listing cameras: $e");
-    }
-  }
+  // Future<void> _listCameras() async {
+  //   try {
+  //     List<MediaDeviceInfo> devices =
+  //         await navigator.mediaDevices.enumerateDevices();
+  //     for (var device in devices) {
+  //       if (device.kind == 'videoinput') {
+  //         setState(() {
+  //           cameraName = device.label;
+  //         });
+  //         print("Camera Found: ${device.label} (ID: ${device.deviceId})");
+  //         print("camera name:  $cameraName");
+  //       }
+  //     }
+  //   } catch (e) {
+  //     print("Error listing cameras: $e");
+  //   }
+  // }
 
   void showErrorNotification(BuildContext context, String message) {
     final overlay = Overlay.of(context);
@@ -552,7 +558,8 @@ class _CameraPageState extends State<Camera>
         // Save file
         File file = File(filePath);
         await file.writeAsBytes(pngBytes);
-        showSuccessNotification(context, "Image saved successfully on path: $filePath");
+        showSuccessNotification(
+            context, "Image saved successfully on path: $filePath");
         print('✅ Image saved at: $filePath');
       }
     } catch (e) {
@@ -567,88 +574,104 @@ class _CameraPageState extends State<Camera>
       startRecording(context);
     }
   }
+Future<void> _initializeCamera() async {
+  await _renderer.initialize();
+  try {
+    // AppLogger.log("Requesting generic camera permission...");
+    // await navigator.mediaDevices.getUserMedia({'video': true});
+    // AppLogger.log("Camera permission granted.");
 
-  Future<void> _initializeCamera() async {
-    await _renderer.initialize();
-    try {
-      await navigator.mediaDevices.getUserMedia({'video': true});
+    List<MediaDeviceInfo> devices =
+        await navigator.mediaDevices.enumerateDevices();
+    AppLogger.log("Enumerated ${devices.length} media devices.");
 
-      List<MediaDeviceInfo> devices =
-          await navigator.mediaDevices.enumerateDevices();
-      String? selectedDeviceId;
+    String? selectedDeviceId;
 
-      for (var device in devices) {
-        print("Found Camera: ${device.label} (ID: ${device.deviceId})");
+    for (var device in devices) {
+      AppLogger.log("Found Device => Kind: ${device.kind}, Label: ${device.label}, ID: ${device.deviceId}");
+      if (device.kind == 'videoinput' && device.label.contains("H1600 Cam")) {
+        AppLogger.log("Selected Camera => ${device.label} (ID: ${device.deviceId})");
 
-       // if (device.kind == 'videoinput' && device.label.contains("H1600 Cam")) {
-       if (device.kind == 'videoinput' && device.label.contains("HP TrueVision HD Camera")) {
-          selectedDeviceId = device.deviceId;
-          break; // Stop searching once the desired camera is found
-        }
-      }
-
-      if (selectedDeviceId != null) {
-        print("Attempting to open camera with device ID: $selectedDeviceId");
-
-        final mediaStream = await navigator.mediaDevices.getUserMedia({
-          'video': {
-            'deviceId': selectedDeviceId, // Ensure correct format
-            'width': {'ideal': 1920}, // Adjust to match camera capability
-            'height': {'ideal': 1080},
-            'frameRate': {'ideal': 30, 'max': 60},
-          },
-          'audio': true,
-        });
-
-        _renderer.srcObject = mediaStream;
         setState(() {
-          _mediaStream = mediaStream;
+          cameraName = device.label;
         });
-
-        print("Camera initialized with device ID: $selectedDeviceId");
-
-        if (_mediaStream != null) {
-          _applyConstraints();
-        }
-      } else {
-        print("No matching camera found.");
+        selectedDeviceId = device.deviceId;
+        break;
       }
-    } catch (e) {
-      print('Error initializing camera: $e');
     }
+
+    if (selectedDeviceId != null) {
+      AppLogger.log("Attempting to initialize camera with ID: $selectedDeviceId");
+
+      final mediaStream = await navigator.mediaDevices.getUserMedia({
+        'video': {
+          'optional':[ {'sourceId': selectedDeviceId}], 
+          'width': {'ideal': 1920},
+          'height': {'ideal': 1080},
+          'frameRate': {'ideal': 30, 'max': 60},
+        },
+        'audio': true,
+      });
+
+      _renderer.srcObject = mediaStream;
+
+      setState(() {
+        _mediaStream = mediaStream;
+      });
+
+      AppLogger.log("Camera successfully initialized with device ID: $selectedDeviceId");
+
+      if (_mediaStream != null) {
+        //_applyConstraints();
+        AppLogger.log("Video constraints applied.");
+      }
+    } else {
+      AppLogger.log("No matching camera (e.g., 'H1600 Cam') was found.");
+    }
+  } catch (e, stackTrace) {
+    AppLogger.log('Camera initialization error: $e\nStackTrace: $stackTrace');
   }
+}
+
+
+void showSnackbar(String message) {
+  final context = navigatorKey.currentContext;
+  if (context != null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+}
 
   void _updateZoom(double zoom) {
-    var _videoTrack = _mediaStream!.getVideoTracks().first;
-    setState(() => _zoomLevel = zoom);
-    if (_videoTrack != null) {
-      final settings = _videoTrack.getSettings();
-      print("ddd");
-      _videoTrack!.applyConstraints({
-        'advanced': [
-          {'zoom': zoom}
-        ]
-      });
-    }
+    // var _videoTrack = _mediaStream!.getVideoTracks().first;
+    // setState(() => _zoomLevel = zoom);
+    // if (_videoTrack != null) {
+    //   final settings = _videoTrack.getSettings();
+    //   _videoTrack!.applyConstraints({
+    //     'advanced': [
+    //       {'zoom': zoom}
+    //     ]
+    //   });
+    // }
   }
 
-  Future<void> _applyConstraints() async {
-    if (_mediaStream == null) return;
+  // Future<void> _applyConstraints() async {
+  //   if (_mediaStream == null) return;
 
-    var videoTrack = _mediaStream!.getVideoTracks().first;
-    var supportedConstraints = navigator.mediaDevices.getSupportedConstraints();
-    print("ddd");
+  //   var videoTrack = _mediaStream!.getVideoTracks().first;
+  //   var supportedConstraints = navigator.mediaDevices.getSupportedConstraints();
 
-    Map<String, dynamic> constraints = {
-      'advanced': [
-        {'brightness': _brightness},
-        {'contrast': _contrast},
-        {'exposureCompensation': _exposure},
-      ]
-    };
+  //   Map<String, dynamic> constraints = {
+  //     'advanced': [
+  //       {'brightness': _brightness},
+  //       {'contrast': _contrast},
+  //       {'exposureCompensation': _exposure},
+  //     ]
+  //   };
 
-    await videoTrack.applyConstraints(constraints);
-  }
+  //   await videoTrack.applyConstraints(constraints);
+  // }
 
   Future<void> stopCamera() async {
     if (_mediaStream != null) {
@@ -665,7 +688,7 @@ class _CameraPageState extends State<Camera>
     try {
       if (_patientNameController.text == "" &&
           _existPatientNameController.text == "") {
-            saveGenericVideos(context);
+        saveGenericVideos(context);
       } else {
         String patientName;
         final dir = await getApplicationDocumentsDirectory();
@@ -698,8 +721,7 @@ class _CameraPageState extends State<Camera>
 
         String ffmpegPath = await getFFmpegPath();
 
-        String videoDeviceName = "H1600 Cam";
-        //String? videoDeviceName = cameraName;
+        String? videoDeviceName = "H1600 Cam";
 
         //To record desktop
         //  List<String> command = [
@@ -771,62 +793,62 @@ class _CameraPageState extends State<Camera>
   }
 
   Future<void> saveGenericVideos(BuildContext context) async {
+    try {
+      Directory baseDir = await getApplicationDocumentsDirectory();
+      Directory saveDir =
+          Directory('${baseDir.path}\\DrCamApp\\Public\\Videos');
 
-    try{
-    Directory baseDir = await getApplicationDocumentsDirectory();
-        Directory saveDir = Directory('${baseDir.path}\\DrCamApp\\Public\\Videos');
+      // Ensure the directory exists
+      if (!await saveDir.exists()) {
+        await saveDir.create(recursive: true);
+      }
+      String currentDate =
+          DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
 
-        // Ensure the directory exists
-        if (!await saveDir.exists()) {
-          await saveDir.create(recursive: true);
-        }
-        String currentDate =
-            DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
+      this.setState(() {
+        outputMp4Path = '${saveDir.path}\\$currentDate.mp4';
+      });
 
-          this.setState(() {
-          outputMp4Path = '${saveDir.path}\\$currentDate.mp4';
-        });
+      String ffmpegPath = await getFFmpegPath();
 
-        String ffmpegPath = await getFFmpegPath();
+      String? videoDeviceName = "H1600 Cam";
+      //MP4 format
+      List<String> command = [
+        '-f',
+        'dshow',
+        '-i',
+        'video=$videoDeviceName',
+        '-c:v',
+        'libx264',
+        '-preset',
+        'fast',
+        '-crf',
+        '23',
+        '-pix_fmt',
+        'yuv420p',
+        '-movflags',
+        '+faststart',
+        '-y',
+        outputMp4Path!,
+      ];
 
-        String videoDeviceName = "H1600 Cam"; 
-          //MP4 format
-        List<String> command = [
-          '-f',
-          'dshow',
-          '-i',
-          'video=$videoDeviceName',
-          '-c:v',
-          'libx264',
-          '-preset',
-          'fast',
-          '-crf',
-          '23',
-          '-pix_fmt',
-          'yuv420p',
-          '-movflags',
-          '+faststart',
-          '-y',
-          outputMp4Path!,
-        ];
+      _ffmpegProcess =
+          await Process.start(ffmpegPath, command, runInShell: true);
 
-        _ffmpegProcess =
-            await Process.start(ffmpegPath, command, runInShell: true);
+      setState(() {
+        isRecording = true;
+      });
 
-        setState(() {
-          isRecording = true;
-        });
+      _ffmpegProcess!.stdout.transform(const Utf8Decoder()).listen((data) {
+        print("FFmpeg Output: $data");
+      });
 
-        _ffmpegProcess!.stdout.transform(const Utf8Decoder()).listen((data) {
-          print("FFmpeg Output: $data");
-        });
-
-        _ffmpegProcess!.stderr.transform(const Utf8Decoder()).listen((data) {
-          print("FFmpeg Error: $data");
-        });
-           showSuccessNotification(context, "Video saved successfully on path: $outputMp4Path");
-         
-    }catch (e, stackTrace) {
+      _ffmpegProcess!.stderr.transform(const Utf8Decoder()).listen((data) {
+        print("FFmpeg Error: $data");
+      });
+      showSuccessNotification(
+          context, "Video saved successfully on path: $outputMp4Path");
+    } catch (e, stackTrace) {
       print("Exception while starting recording: $e");
       print("StackTrace: $stackTrace");
     }
@@ -1461,7 +1483,6 @@ class _CameraPageState extends State<Camera>
                             ),
                             SizedBox(height: 5), // Reduce spacing
                             Expanded(
-                              // Allow flexible space for content
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.7),
@@ -1475,15 +1496,37 @@ class _CameraPageState extends State<Camera>
                                   ],
                                 ),
                                 child: item['type'] == 'image'
-                                    ? ClipRRect(
-                                        // Rounded corners for images
-                                        borderRadius: BorderRadius.circular(15),
-                                        child: Image.memory(
-                                          item[
-                                              'data'], // Image data from memory
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
-                                          height: double.infinity,
+                                    ? GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => ImagePreviewPage(
+                                                  imageData: item['data'],
+                                                  onSave:
+                                                      (Uint8List editedImage) {
+                                                    setState(() {
+                                                      // Update the image in the grid
+                                                      capturedItems[index]
+                                                              ['data'] =
+                                                          editedImage;
+                                                    });
+                                                  }),
+                                            ),
+                                          );
+                                        },
+                                        child: Hero(
+                                          tag: item['data'],
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(15),
+                                            child: Image.memory(
+                                              item['data'],
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                            ),
+                                          ),
                                         ),
                                       )
                                     : item['type'] == 'video'
@@ -1493,7 +1536,6 @@ class _CameraPageState extends State<Camera>
                                             },
                                             child: Stack(
                                               children: [
-                                                // 📌 Top-left video icon
                                                 Positioned(
                                                   top: 8,
                                                   left: 8,
@@ -1501,7 +1543,6 @@ class _CameraPageState extends State<Camera>
                                                       size: 24,
                                                       color: Colors.black54),
                                                 ),
-                                                // 📌 Center play button
                                                 Center(
                                                   child: Icon(
                                                       Icons.play_circle_fill,
@@ -1511,9 +1552,7 @@ class _CameraPageState extends State<Camera>
                                               ],
                                             ),
                                           )
-                                        : Center(
-                                            child: Icon(Icons
-                                                .videocam)), // Default if type is unknown
+                                        : Center(child: Icon(Icons.videocam)),
                               ),
                             ),
                           ],

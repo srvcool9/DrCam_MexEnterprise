@@ -50,6 +50,7 @@ class Queries {
   static const String GET_GRID_DATA = '''
     SELECT 
     p.patientId,
+    p.appointmentId,
     p.patientName,
     MAX(t.appointmentDate) AS lastVisited
     FROM patients p

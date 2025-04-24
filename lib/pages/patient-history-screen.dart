@@ -150,7 +150,7 @@ void _viewHistory(BuildContext context, int patientId) async {
         border: Border.all(color: Colors.blueAccent.shade100, width: 0.5),
       ),
       children: [
-        tableCell(patient.patientId.toString()),
+        tableCell(patient.appointmentId),
         tableCell(patient.patientName),
         tableCell(patient.lastVisited),
         IconButton(

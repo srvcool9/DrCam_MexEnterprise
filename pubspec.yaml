@@ -43,6 +43,7 @@ dependencies:
   encrypt: ^5.0.0
   pdf: 
   file_picker: ^8.1.4
+  camera_windows:
   video_player:
   video_player_win: ^2.0.0
   flutter_ffmpeg:

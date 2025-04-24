@@ -1,5 +1,6 @@
 import 'package:doctorcam/pages/camera.dart';
 import 'package:doctorcam/pages/doctor-profile-screen.dart';
+import 'package:doctorcam/pages/image-marker.dart';
 import 'package:doctorcam/pages/landing-screen.dart';
 import 'package:doctorcam/pages/login.dart';
 import 'package:doctorcam/pages/patient-history-screen.dart';
@@ -43,7 +44,7 @@ class DashboardState extends State<Dashboard> {
     PatientHistoryScreen(),
     DoctorProfileScreen(),
      ExitPage(onExit: () {
-      exit(0);
+      exit(0); 
     }),
     PDFExampleScreen()
     
@@ -96,7 +97,7 @@ class DashboardState extends State<Dashboard> {
                 _buildNavItem('Camera', 1),
                 _buildNavItem('Patient History', 2),
                 _buildNavItem('Settings', 3),
-                _buildNavItem('Exit', 4),
+                _buildNavItem('ImagePicker', 4),
               
               ],
             ),

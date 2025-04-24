@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:doctorcam/db_config/database_config.dart';
+import 'package:doctorcam/logger/app-logger.dart';
 import 'package:doctorcam/pages/camera.dart';
 import 'package:doctorcam/pages/dashboard.dart';
 import 'package:doctorcam/pages/doctor-profile-screen.dart';
@@ -14,6 +15,7 @@ import 'package:flutter/material.dart';
 Future<void> main() async {
   runZonedGuarded(() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppLogger.init();
   var dbConfig= DatabaseConfig();
   await dbConfig.initDB();
    FFmpegKitConfig.setEnvironmentVariable(
@@ -21,6 +23,7 @@ Future<void> main() async {
   FFmpegKitConfig.setEnvironmentVariable(
       "FFPROBE_BIN", "windows/ffmpeg-plugin/bin/ffprobe.exe");
   runApp(const MyApp());
+  AppLogger.log("App started");
   }, (error, stackTrace) {
     File('error.log').writeAsStringSync('$error\n$stackTrace');
   });
